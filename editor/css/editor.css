@@ -1,0 +1,588 @@
+/* ===== Import Font ===== */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;700&display=swap');
+
+/* ===== CSS Variables ===== */
+:root {
+    --topbar-h: 52px;
+    --sidebar-w: 210px;
+
+    --bg-dark:      #0d1117;
+    --bg-panel:     #161b22;
+    --bg-panel2:    #1c2330;
+    --bg-hover:     #21293a;
+    --border:       rgba(48, 200, 150, 0.15);
+    --border-hover: rgba(48, 200, 150, 0.45);
+
+    --accent:       #30c896;
+    --accent-dim:   rgba(48, 200, 150, 0.12);
+    --accent-glow:  rgba(48, 200, 150, 0.25);
+
+    --ping-col:     #30c896;
+    --routing-col:  #4d9fff;
+    --dos-col:      #ff5f5f;
+    --levels-col:   #c084fc;
+
+    --text-primary:   #e6edf3;
+    --text-secondary: #7d8590;
+    --text-dim:       #484f58;
+
+    --canvas-bg:    #ffffff;
+    --grid-color:   rgba(0, 0, 0, 0.06);
+    --grid-major:   rgba(48, 200, 150, 0.07);
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+}
+
+/* ===== Reset ===== */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Syne', sans-serif;
+    background: var(--bg-dark);
+}
+
+/* ===================================================
+   TOP BAR
+=================================================== */
+#topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--topbar-h);
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    z-index: 999999;
+    pointer-events: auto;
+}
+
+/* Brand badge في المنتصف */
+#topbar::after {
+    content: 'NetSim';
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.topbar-left,
+.topbar-right {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+/* ===== أزرار Play / Pause ===== */
+.topbar-left button {
+    width: 34px;
+    height: 34px;
+    background: var(--bg-panel2);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.18s ease;
+}
+
+.topbar-left button:hover {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.topbar-left button:active {
+    transform: scale(0.93);
+}
+
+/* ===== أزرار الشريط الأيمن ===== */
+.topbar-right button {
+    height: 34px;
+    padding: 0 14px;
+    background: var(--bg-panel2);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: all 0.18s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#btn-ping-top {
+    --btn-color: var(--ping-col);
+}
+#btn-routing {
+    --btn-color: var(--routing-col);
+}
+#btn-dos {
+    --btn-color: var(--dos-col);
+}
+#btn-levels-top {
+    --btn-color: var(--levels-col);
+}
+#btn-clear {
+    --btn-color: var(--dos-col);
+}
+#btn-save {
+    --btn-color: #4d9fff;
+}
+#btn-load {
+    --btn-color: #c084fc;
+}
+
+.topbar-right button:hover {
+    background: color-mix(in srgb, var(--btn-color) 12%, transparent);
+    border-color: var(--btn-color);
+    color: var(--btn-color);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--btn-color) 30%, transparent);
+}
+
+.topbar-right button:active {
+    transform: scale(0.95);
+}
+
+/* حالة active للزر المحدد */
+.topbar-right button.active {
+    background: color-mix(in srgb, var(--btn-color) 18%, transparent);
+    border-color: var(--btn-color);
+    color: var(--btn-color);
+}
+
+/* ===================================================
+   CANVAS AREA
+=================================================== */
+#editorCanvas {
+    position: fixed;
+    top: var(--topbar-h);
+    left: 0;
+    width: calc(100% - var(--sidebar-w));
+    height: calc(100% - var(--topbar-h));
+    background: var(--canvas-bg);
+    z-index: 1;
+    overflow: hidden;
+    clip-path: inset(0);
+
+    /* Grid pattern — خطوط صغيرة + خطوط كبيرة */
+    background-image:
+        linear-gradient(var(--grid-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size:
+        100px 100px,
+        100px 100px,
+        20px 20px,
+        20px 20px;
+    background-position:
+        -1px -1px,
+        -1px -1px,
+        -1px -1px,
+        -1px -1px;
+}
+
+#editorCanvas canvas {
+    position: absolute !important;
+    top: 0 !important; left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 0 !important;
+    display: block !important;
+    /* الـ canvas شفاف كي يظهر الـ grid من الخلفية */
+    background: transparent !important;
+}
+
+/* ===================================================
+   SIDEBAR
+=================================================== */
+#toolbar {
+    position: fixed;
+    right: 0;
+    top: var(--topbar-h);
+    width: var(--sidebar-w);
+    height: calc(100% - var(--topbar-h));
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border);
+    padding: 16px 12px;
+    overflow-y: auto;
+    z-index: 10000;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Scrollbar */
+#toolbar::-webkit-scrollbar { width: 4px; }
+#toolbar::-webkit-scrollbar-track { background: transparent; }
+#toolbar::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+/* عنوان القسم */
+#toolbar h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 0 4px 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+}
+
+/* ===== Tool Items ===== */
+.tool-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-panel2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: grab;
+    transition: all 0.18s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* خط accent على اليسار */
+.tool-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 20%; bottom: 20%;
+    width: 2px;
+    background: var(--accent);
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+.tool-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-hover);
+    transform: translateX(-2px);
+    box-shadow: 4px 0 0 var(--accent);
+}
+
+.tool-item:hover::before {
+    opacity: 1;
+}
+
+.tool-item:active {
+    cursor: grabbing;
+    transform: scale(0.97);
+}
+
+.tool-item img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    pointer-events: none;
+    filter: brightness(0.9);
+    transition: filter 0.18s;
+}
+
+.tool-item:hover img {
+    filter: brightness(1.1) drop-shadow(0 0 4px var(--accent-glow));
+}
+
+.tool-item span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.3px;
+    transition: color 0.18s;
+}
+
+.tool-item:hover span {
+    color: var(--text-primary);
+}
+
+/* ===================================================
+   DRAG PROXY
+=================================================== */
+.drag-proxy {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    padding: 6px 14px;
+    background: var(--bg-panel);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 4px 20px var(--accent-glow);
+    animation: proxyPulse 0.8s ease infinite alternate;
+}
+
+@keyframes proxyPulse {
+    from { box-shadow: 0 4px 12px var(--accent-glow); }
+    to   { box-shadow: 0 4px 24px var(--accent); }
+}
+
+/* ===================================================
+   DEVICE STATES (Phaser objects - تأثيرات CSS)
+=================================================== */
+.device { transition: all 0.2s ease; }
+.device:hover { transform: scale(1.08); filter: brightness(1.1); }
+
+.device.selected {
+    filter: drop-shadow(0 0 8px rgba(48, 200, 150, 0.9));
+}
+.device.source {
+    filter: drop-shadow(0 0 12px #30c896);
+}
+.device.target {
+    filter: drop-shadow(0 0 12px #ff5f5f);
+}
+
+@keyframes pulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+}
+.device.pinging { animation: pulse 0.6s infinite; }
+
+/* ===================================================
+   CONTEXT MENU
+=================================================== */
+.context-menu {
+    position: fixed;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    z-index: 100000;
+    min-width: 180px;
+    overflow: hidden;
+    animation: menuIn 0.12s ease;
+}
+
+@keyframes menuIn {
+    from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.context-item {
+    padding: 11px 16px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Syne', sans-serif;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s ease;
+    border-bottom: 1px solid var(--border);
+}
+
+.context-item:last-child { border-bottom: none; }
+
+.context-item:hover {
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding-left: 20px;
+}
+
+/* ===================================================
+   STATUS BAR (اختياري — يمكنك إضافته لاحقاً)
+=================================================== */
+#statusbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: calc(100% - var(--sidebar-w));
+    height: 24px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 16px;
+    z-index: 9999;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+}
+
+#statusbar span { color: var(--text-secondary); }
+#statusbar span.active { color: var(--accent); font-weight: 600; }
+/* ===================================================
+   UTILITY — تأثير نقر على مساحة العمل
+=================================================== */
+@keyframes ripple {
+    from { transform: scale(0); opacity: 0.6; }
+    to   { transform: scale(3); opacity: 0; }
+}
+
+.canvas-ripple {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    pointer-events: none;
+    animation: ripple 0.5s ease forwards;
+    transform-origin: center;
+    margin-left: -15px;
+    margin-top: -15px;
+}
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+/* ===== Device Tooltip ===== */
+#device-tooltip .tip-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #30c896;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+#device-tooltip .tip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 4px;
+}
+
+#device-tooltip .tip-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #484f58;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+#device-tooltip .tip-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #e6edf3;
+    font-weight: 400;
+}
+/* ===================================================
+   EVENT LOG
+=================================================== */
+#event-log-section {
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    flex-shrink: 0;
+}
+
+.event-log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+}
+
+#event-log-clear {
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 12px;
+    transition: color 0.15s;
+}
+
+#event-log-clear:hover { color: var(--dos-col); }
+
+#event-log-body {
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+#event-log-body::-webkit-scrollbar { width: 3px; }
+#event-log-body::-webkit-scrollbar-track { background: transparent; }
+#event-log-body::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+.event-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    background: var(--bg-panel2);
+    border-radius: 5px;
+    border-left: 2px solid transparent;
+    transition: border-color 0.15s;
+    animation: eventIn 0.2s ease;
+}
+
+@keyframes eventIn {
+    from { opacity: 0; transform: translateX(6px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+.event-item.ev-success { border-left-color: var(--accent); }
+.event-item.ev-error   { border-left-color: var(--dos-col); }
+.event-item.ev-info    { border-left-color: var(--routing-col); }
+.event-item.ev-warn    { border-left-color: #ffc832; }
+
+.event-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+}
+
+.event-msg {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.4;
+}
+
+.event-item.ev-success .event-msg { color: var(--accent); }
+.event-item.ev-error   .event-msg { color: var(--dos-col); }
+.event-item.ev-info    .event-msg { color: var(--routing-col); }
+.event-item.ev-warn    .event-msg { color: #ffc832; }
