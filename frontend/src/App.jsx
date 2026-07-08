@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TopologyCanvas from './components/TopologyCanvas';
 import SiemDashboard from './components/SiemDashboard';
+import SocDashboard from './components/SocDashboard';
 import { useTopologyStore } from './store/topologyStore';
 
 function App() {
@@ -47,8 +48,10 @@ function App() {
     <div>
       <button onClick={() => setActiveTab('editor')}>Network Editor</button>
       <button onClick={() => setActiveTab('siem')}>SIEM Dashboard</button>
+      <button onClick={() => setActiveTab('soc')}>SOC Tickets</button>
 
       {activeTab === 'siem' && <SiemDashboard />}
+      {activeTab === 'soc' && <SocDashboard />}
 
       {activeTab === 'editor' && (
         <div>

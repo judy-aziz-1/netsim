@@ -34,6 +34,48 @@ export async function getAlerts(token) {
   return res.json();
 }
 
+export async function getIncidentTickets(token) {
+  const res = await fetch(`${BASE_URL}/incident-tickets`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return res.json();
+}
+
+export async function createIncidentTicket(token, title, description) {
+  const res = await fetch(`${BASE_URL}/incident-tickets`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ title, description }),
+  });
+
+  return res.json();
+}
+
+export async function getIncidentTicket(token, id) {
+  const res = await fetch(`${BASE_URL}/incident-tickets/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return res.json();
+}
+
+export async function updateTicketStatus(token, id, status, note) {
+  const res = await fetch(`${BASE_URL}/incident-tickets/${id}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ status, note }),
+  });
+
+  return res.json();
+}
+
 export async function postSecurityEvent(token, eventData) {
   const res = await fetch(`${BASE_URL}/security-events`, {
     method: 'POST',
