@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createPacket } from '../engine/packetMovement';
+import { buildArpTable, simulateArpSpoof } from '../engine/arpSpoofing';
 
 let deviceIdCounter = 0;
 
@@ -24,6 +25,8 @@ export const useTopologyStore = create((set) => ({
   links: [],
   connectingFromDeviceId: null,
   activePackets: [],
+  arpTables: {},
+  arpAttackLog: [],
 
   addDevice: (type, x, y) => {
     deviceIdCounter += 1;
@@ -38,7 +41,11 @@ export const useTopologyStore = create((set) => ({
       mac: randomMac(),
     };
 
-    set((state) => ({ devices: [...state.devices, device] }));
+    set((state) => {
+      const devices = [...state.devices, device];
+
+      return { devices, arpTables: buildArpTable(devices, state.links) };
+    });
   },
 
   updateDevicePosition: (id, x, y) =>
@@ -49,9 +56,11 @@ export const useTopologyStore = create((set) => ({
     })),
 
   removeDevice: (id) =>
-    set((state) => ({
-      devices: state.devices.filter((device) => device.id !== id),
-    })),
+    set((state) => {
+      const devices = state.devices.filter((device) => device.id !== id);
+
+      return { devices, arpTables: buildArpTable(devices, state.links) };
+    }),
 
   addLink: (sourceId, targetId) =>
     set((state) => {
@@ -73,13 +82,17 @@ export const useTopologyStore = create((set) => ({
         targetDeviceId: targetId,
       };
 
-      return { links: [...state.links, link] };
+      const links = [...state.links, link];
+
+      return { links, arpTables: buildArpTable(state.devices, links) };
     }),
 
   removeLink: (id) =>
-    set((state) => ({
-      links: state.links.filter((link) => link.id !== id),
-    })),
+    set((state) => {
+      const links = state.links.filter((link) => link.id !== id);
+
+      return { links, arpTables: buildArpTable(state.devices, links) };
+    }),
 
   setConnectingFromDeviceId: (id) => set({ connectingFromDeviceId: id }),
 
@@ -112,4 +125,23 @@ export const useTopologyStore = create((set) => ({
         packet.id === id ? newPacketObject : packet,
       ),
     })),
+
+  triggerArpSpoof: (attackerDeviceId, victimDeviceId, impersonatedDeviceId) =>
+    set((state) => {
+      const arpTables = simulateArpSpoof(
+        state.arpTables,
+        attackerDeviceId,
+        victimDeviceId,
+        impersonatedDeviceId,
+      );
+
+      const logEntry = {
+        timestamp: Date.now(),
+        attackerDeviceId,
+        victimDeviceId,
+        impersonatedDeviceId,
+      };
+
+      return { arpTables, arpAttackLog: [...state.arpAttackLog, logEntry] };
+    }),
 }));
