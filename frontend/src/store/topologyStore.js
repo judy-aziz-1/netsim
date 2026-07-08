@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { createPacket } from '../engine/packetMovement';
 import { buildArpTable, simulateArpSpoof } from '../engine/arpSpoofing';
+import { postSecurityEvent } from '../api/client';
+import { useAuthStore } from './authStore';
 
 let deviceIdCounter = 0;
 
@@ -126,7 +128,7 @@ export const useTopologyStore = create((set) => ({
       ),
     })),
 
-  triggerArpSpoof: (attackerDeviceId, victimDeviceId, impersonatedDeviceId) =>
+  triggerArpSpoof: (attackerDeviceId, victimDeviceId, impersonatedDeviceId) => {
     set((state) => {
       const arpTables = simulateArpSpoof(
         state.arpTables,
@@ -143,5 +145,15 @@ export const useTopologyStore = create((set) => ({
       };
 
       return { arpTables, arpAttackLog: [...state.arpAttackLog, logEntry] };
-    }),
+    });
+
+    const token = useAuthStore.getState().token;
+
+    postSecurityEvent(token, {
+      eventType: 'arp_spoof',
+      attackerDeviceId,
+      victimDeviceId,
+      impersonatedDeviceId,
+    }).catch((error) => console.error('Failed to send security event', error));
+  },
 }));

@@ -17,3 +17,20 @@ export async function getTopologies(token) {
 
   return res.json();
 }
+
+export async function postSecurityEvent(token, eventData) {
+  const res = await fetch(`${BASE_URL}/security-events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(eventData),
+  });
+
+  if (!res.ok) {
+    throw new Error(`postSecurityEvent failed with status ${res.status}`);
+  }
+
+  return res.json();
+}
