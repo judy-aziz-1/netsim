@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\NetworkTopologyController;
+use App\Http\Controllers\SecurityEventController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -16,4 +17,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/network-topologies', [NetworkTopologyController::class, 'index']);
     Route::post('/network-topologies', [NetworkTopologyController::class, 'store']);
+
+    Route::get('/security-events', [SecurityEventController::class, 'index']);
+    Route::post('/security-events', [SecurityEventController::class, 'store']);
 });
