@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { createPacket } from '../engine/packetMovement';
 
 let deviceIdCounter = 0;
 
@@ -22,6 +23,7 @@ export const useTopologyStore = create((set) => ({
   devices: [],
   links: [],
   connectingFromDeviceId: null,
+  activePackets: [],
 
   addDevice: (type, x, y) => {
     deviceIdCounter += 1;
@@ -80,4 +82,34 @@ export const useTopologyStore = create((set) => ({
     })),
 
   setConnectingFromDeviceId: (id) => set({ connectingFromDeviceId: id }),
+
+  sendPacket: (sourceDeviceId, targetDeviceId) =>
+    set((state) => {
+      const hasDirectLink = state.links.some(
+        (link) =>
+          (link.sourceDeviceId === sourceDeviceId && link.targetDeviceId === targetDeviceId) ||
+          (link.sourceDeviceId === targetDeviceId && link.targetDeviceId === sourceDeviceId),
+      );
+
+      if (!hasDirectLink) {
+        console.warn(`No direct link between ${sourceDeviceId} and ${targetDeviceId}`);
+        return state;
+      }
+
+      const packet = createPacket(sourceDeviceId, targetDeviceId, [sourceDeviceId, targetDeviceId]);
+
+      return { activePackets: [...state.activePackets, packet] };
+    }),
+
+  removePacket: (id) =>
+    set((state) => ({
+      activePackets: state.activePackets.filter((packet) => packet.id !== id),
+    })),
+
+  updatePacketState: (id, newPacketObject) =>
+    set((state) => ({
+      activePackets: state.activePackets.map((packet) =>
+        packet.id === id ? newPacketObject : packet,
+      ),
+    })),
 }));
