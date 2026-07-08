@@ -18,6 +18,22 @@ export async function getTopologies(token) {
   return res.json();
 }
 
+export async function getSecurityEvents(token) {
+  const res = await fetch(`${BASE_URL}/security-events`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return res.json();
+}
+
+export async function getAlerts(token) {
+  const res = await fetch(`${BASE_URL}/alerts`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return res.json();
+}
+
 export async function postSecurityEvent(token, eventData) {
   const res = await fetch(`${BASE_URL}/security-events`, {
     method: 'POST',

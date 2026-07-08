@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import TopologyCanvas from './components/TopologyCanvas';
+import SiemDashboard from './components/SiemDashboard';
 import { useTopologyStore } from './store/topologyStore';
 
 function App() {
+  const [activeTab, setActiveTab] = useState('editor');
   const addDevice = useTopologyStore((state) => state.addDevice);
   const sendPacket = useTopologyStore((state) => state.sendPacket);
   const triggerArpSpoof = useTopologyStore((state) => state.triggerArpSpoof);
@@ -43,6 +45,13 @@ function App() {
 
   return (
     <div>
+      <button onClick={() => setActiveTab('editor')}>Network Editor</button>
+      <button onClick={() => setActiveTab('siem')}>SIEM Dashboard</button>
+
+      {activeTab === 'siem' && <SiemDashboard />}
+
+      {activeTab === 'editor' && (
+        <div>
       <button onClick={() => addDevice('router', 100, 100)}>Add Router</button>
 
       <select value={sourceDeviceId} onChange={(event) => setSourceDeviceId(event.target.value)}>
@@ -138,6 +147,8 @@ function App() {
       <button onClick={handleTriggerDnsPoison}>Trigger DNS Poison</button>
 
       <TopologyCanvas />
+        </div>
+      )}
     </div>
   );
 }
