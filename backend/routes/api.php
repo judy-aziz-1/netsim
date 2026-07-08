@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\IncidentTicketController;
 use App\Http\Controllers\NetworkTopologyController;
 use App\Http\Controllers\SecurityEventController;
 use Illuminate\Http\Request;
@@ -23,4 +24,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/security-events', [SecurityEventController::class, 'store']);
 
     Route::get('/alerts', [AlertController::class, 'index']);
+
+    Route::get('/incident-tickets', [IncidentTicketController::class, 'index']);
+    Route::post('/incident-tickets', [IncidentTicketController::class, 'store']);
+    Route::get('/incident-tickets/{id}', [IncidentTicketController::class, 'show']);
+    Route::patch('/incident-tickets/{id}/status', [IncidentTicketController::class, 'updateStatus']);
 });
