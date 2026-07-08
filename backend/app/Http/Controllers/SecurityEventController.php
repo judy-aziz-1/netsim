@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SecurityEvent;
+use App\Services\CorrelationEngine;
 use Illuminate\Http\Request;
 
 class SecurityEventController extends Controller
@@ -23,6 +24,12 @@ class SecurityEventController extends Controller
         ]);
 
         $event = SecurityEvent::create($validated);
+
+        try {
+            CorrelationEngine::correlate($event);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response()->json($event, 201);
     }

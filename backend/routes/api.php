@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\NetworkTopologyController;
 use App\Http\Controllers\SecurityEventController;
@@ -20,4 +21,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/security-events', [SecurityEventController::class, 'index']);
     Route::post('/security-events', [SecurityEventController::class, 'store']);
+
+    Route::get('/alerts', [AlertController::class, 'index']);
 });
