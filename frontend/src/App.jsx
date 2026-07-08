@@ -6,6 +6,7 @@ function App() {
   const addDevice = useTopologyStore((state) => state.addDevice);
   const sendPacket = useTopologyStore((state) => state.sendPacket);
   const triggerArpSpoof = useTopologyStore((state) => state.triggerArpSpoof);
+  const triggerDnsPoison = useTopologyStore((state) => state.triggerDnsPoison);
   const devices = useTopologyStore((state) => state.devices);
 
   const [sourceDeviceId, setSourceDeviceId] = useState('');
@@ -14,6 +15,11 @@ function App() {
   const [attackerDeviceId, setAttackerDeviceId] = useState('');
   const [victimDeviceId, setVictimDeviceId] = useState('');
   const [impersonatedDeviceId, setImpersonatedDeviceId] = useState('');
+
+  const [dnsAttackerDeviceId, setDnsAttackerDeviceId] = useState('');
+  const [dnsVictimDeviceId, setDnsVictimDeviceId] = useState('');
+  const [targetDomain, setTargetDomain] = useState('');
+  const [fakeIp, setFakeIp] = useState('');
 
   const handleTriggerArpSpoof = () => {
     triggerArpSpoof(attackerDeviceId, victimDeviceId, impersonatedDeviceId);
@@ -25,6 +31,14 @@ function App() {
     alert(
       `victim device ${victim?.name} now believes MAC of attacker ${attacker?.name} belongs to device ${impersonated?.name}`,
     );
+  };
+
+  const handleTriggerDnsPoison = () => {
+    triggerDnsPoison(dnsAttackerDeviceId, dnsVictimDeviceId, targetDomain, fakeIp);
+
+    const victim = devices.find((device) => device.id === dnsVictimDeviceId);
+
+    alert(`victim device ${victim?.name} now resolves ${targetDomain} to ${fakeIp}`);
   };
 
   return (
@@ -82,6 +96,46 @@ function App() {
       </select>
 
       <button onClick={handleTriggerArpSpoof}>Trigger ARP Spoof</button>
+
+      <select
+        value={dnsAttackerDeviceId}
+        onChange={(event) => setDnsAttackerDeviceId(event.target.value)}
+      >
+        <option value="">DNS attacker device</option>
+        {devices.map((device) => (
+          <option key={device.id} value={device.id}>
+            {device.name}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={dnsVictimDeviceId}
+        onChange={(event) => setDnsVictimDeviceId(event.target.value)}
+      >
+        <option value="">DNS victim device</option>
+        {devices.map((device) => (
+          <option key={device.id} value={device.id}>
+            {device.name}
+          </option>
+        ))}
+      </select>
+
+      <input
+        type="text"
+        placeholder="Target domain"
+        value={targetDomain}
+        onChange={(event) => setTargetDomain(event.target.value)}
+      />
+
+      <input
+        type="text"
+        placeholder="Fake IP"
+        value={fakeIp}
+        onChange={(event) => setFakeIp(event.target.value)}
+      />
+
+      <button onClick={handleTriggerDnsPoison}>Trigger DNS Poison</button>
 
       <TopologyCanvas />
     </div>

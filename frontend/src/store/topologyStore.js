@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createPacket } from '../engine/packetMovement';
 import { buildArpTable, simulateArpSpoof } from '../engine/arpSpoofing';
+import { buildDnsTable, simulateDnsPoison } from '../engine/dnsPoisoning';
 import { postSecurityEvent } from '../api/client';
 import { useAuthStore } from './authStore';
 
@@ -29,6 +30,7 @@ export const useTopologyStore = create((set) => ({
   activePackets: [],
   arpTables: {},
   arpAttackLog: [],
+  dnsTables: {},
 
   addDevice: (type, x, y) => {
     deviceIdCounter += 1;
@@ -46,7 +48,11 @@ export const useTopologyStore = create((set) => ({
     set((state) => {
       const devices = [...state.devices, device];
 
-      return { devices, arpTables: buildArpTable(devices, state.links) };
+      return {
+        devices,
+        arpTables: buildArpTable(devices, state.links),
+        dnsTables: buildDnsTable(devices),
+      };
     });
   },
 
@@ -61,7 +67,11 @@ export const useTopologyStore = create((set) => ({
     set((state) => {
       const devices = state.devices.filter((device) => device.id !== id);
 
-      return { devices, arpTables: buildArpTable(devices, state.links) };
+      return {
+        devices,
+        arpTables: buildArpTable(devices, state.links),
+        dnsTables: buildDnsTable(devices),
+      };
     }),
 
   addLink: (sourceId, targetId) =>
@@ -154,6 +164,29 @@ export const useTopologyStore = create((set) => ({
       attackerDeviceId,
       victimDeviceId,
       impersonatedDeviceId,
+    }).catch((error) => console.error('Failed to send security event', error));
+  },
+
+  triggerDnsPoison: (attackerDeviceId, victimDeviceId, targetDomain, fakeIp) => {
+    set((state) => {
+      const dnsTables = simulateDnsPoison(
+        state.dnsTables,
+        attackerDeviceId,
+        victimDeviceId,
+        targetDomain,
+        fakeIp,
+      );
+
+      return { dnsTables };
+    });
+
+    const token = useAuthStore.getState().token;
+
+    postSecurityEvent(token, {
+      eventType: 'dns_poison',
+      attackerDeviceId,
+      victimDeviceId,
+      details: { targetDomain, fakeIp },
     }).catch((error) => console.error('Failed to send security event', error));
   },
 }));
