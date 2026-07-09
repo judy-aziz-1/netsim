@@ -23,7 +23,7 @@ function randomMac() {
 
 let linkIdCounter = 0;
 
-export const useTopologyStore = create((set) => ({
+export const useTopologyStore = create((set, get) => ({
   devices: [],
   links: [],
   connectingFromDeviceId: null,
@@ -66,10 +66,24 @@ export const useTopologyStore = create((set) => ({
   removeDevice: (id) =>
     set((state) => {
       const devices = state.devices.filter((device) => device.id !== id);
+      const links = state.links.filter(
+        (link) => link.sourceDeviceId !== id && link.targetDeviceId !== id,
+      );
+      const activePackets = state.activePackets.filter(
+        (packet) =>
+          packet.sourceNodeId !== id &&
+          packet.targetNodeId !== id &&
+          !packet.path.includes(id),
+      );
+      const connectingFromDeviceId =
+        state.connectingFromDeviceId === id ? null : state.connectingFromDeviceId;
 
       return {
         devices,
-        arpTables: buildArpTable(devices, state.links),
+        links,
+        activePackets,
+        connectingFromDeviceId,
+        arpTables: buildArpTable(devices, links),
         dnsTables: buildDnsTable(devices),
       };
     }),
@@ -108,7 +122,17 @@ export const useTopologyStore = create((set) => ({
 
   setConnectingFromDeviceId: (id) => set({ connectingFromDeviceId: id }),
 
-  sendPacket: (sourceDeviceId, targetDeviceId) =>
+  sendPacket: (sourceDeviceId, targetDeviceId) => {
+    const devices = get().devices;
+    const devicesExist =
+      devices.some((device) => device.id === sourceDeviceId) &&
+      devices.some((device) => device.id === targetDeviceId);
+
+    if (!devicesExist) {
+      console.warn(`Cannot send packet: device not found (${sourceDeviceId} -> ${targetDeviceId})`);
+      return;
+    }
+
     set((state) => {
       const hasDirectLink = state.links.some(
         (link) =>
@@ -124,7 +148,8 @@ export const useTopologyStore = create((set) => ({
       const packet = createPacket(sourceDeviceId, targetDeviceId, [sourceDeviceId, targetDeviceId]);
 
       return { activePackets: [...state.activePackets, packet] };
-    }),
+    });
+  },
 
   removePacket: (id) =>
     set((state) => ({
@@ -139,6 +164,16 @@ export const useTopologyStore = create((set) => ({
     })),
 
   triggerArpSpoof: (attackerDeviceId, victimDeviceId, impersonatedDeviceId) => {
+    const devices = get().devices;
+    const devicesExist = [attackerDeviceId, victimDeviceId, impersonatedDeviceId].every((id) =>
+      devices.some((device) => device.id === id),
+    );
+
+    if (!devicesExist) {
+      console.warn('Cannot trigger ARP spoof: one or more devices not found');
+      return;
+    }
+
     set((state) => {
       const arpTables = simulateArpSpoof(
         state.arpTables,
@@ -168,6 +203,16 @@ export const useTopologyStore = create((set) => ({
   },
 
   triggerDnsPoison: (attackerDeviceId, victimDeviceId, targetDomain, fakeIp) => {
+    const devices = get().devices;
+    const devicesExist = [attackerDeviceId, victimDeviceId].every((id) =>
+      devices.some((device) => device.id === id),
+    );
+
+    if (!devicesExist) {
+      console.warn('Cannot trigger DNS poison: one or more devices not found');
+      return;
+    }
+
     set((state) => {
       const dnsTables = simulateDnsPoison(
         state.dnsTables,
