@@ -7,22 +7,32 @@ import {
 } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 
-const STATUS_COLORS = {
-  open: '#3498db',
-  investigating: '#e67e22',
-  closed: '#7f8c8d',
+const STATUS_BADGE_CLASS = {
+  open: 'badge-open',
+  investigating: 'badge-investigating',
+  closed: 'badge-closed',
 };
 
 function SocDashboard() {
   const token = useAuthStore((state) => state.token);
   const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTicketId, setSelectedTicketId] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
 
   const loadTickets = () => {
-    getIncidentTickets(token).then(setTickets).catch(console.error);
+    setError(null);
+    getIncidentTickets(token)
+      .then(setTickets)
+      .catch((err) => {
+        setTickets([]);
+        setError('Please log in to view this data.');
+        console.error(err);
+      })
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -56,58 +66,78 @@ function SocDashboard() {
 
   return (
     <div>
-      <h2>New Ticket</h2>
-      <input
-        type="text"
-        placeholder="Title"
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-      />
-      <textarea
-        placeholder="Description"
-        value={description}
-        onChange={(event) => setDescription(event.target.value)}
-      />
-      <button onClick={handleSubmit}>Submit</button>
+      {error && <p className="error-text">{error}</p>}
 
-      <h2>Tickets</h2>
-      <div>
-        {tickets.map((ticket) => (
-          <div
-            key={ticket.id}
-            onClick={() => setSelectedTicketId(ticket.id)}
-            style={{
-              border: `2px solid ${STATUS_COLORS[ticket.status] ?? '#888'}`,
-              padding: '8px',
-              marginBottom: '8px',
-              cursor: 'pointer',
-            }}
-          >
-            <div>{ticket.title}</div>
-            <div style={{ color: STATUS_COLORS[ticket.status] ?? '#888', fontWeight: 'bold' }}>
-              {ticket.status}
+      <div className="section">
+        <h2>New Ticket</h2>
+        <div className="field-row">
+          <input
+            type="text"
+            placeholder="Title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </div>
+        <div className="field-row">
+          <textarea
+            placeholder="Description"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </div>
+        <div className="field-row">
+          <button className="btn" onClick={handleSubmit}>Submit</button>
+        </div>
+      </div>
+
+      <div className="section">
+        <h2>Tickets</h2>
+
+        {loading ? (
+          <p className="loading-text">Loading...</p>
+        ) : (
+          tickets.map((ticket) => (
+            <div
+              key={ticket.id}
+              className="card clickable"
+              onClick={() => setSelectedTicketId(ticket.id)}
+            >
+              <div className="card-header">
+                <span>{ticket.title}</span>
+                <span className={`badge ${STATUS_BADGE_CLASS[ticket.status] ?? ''}`}>
+                  {ticket.status}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {selectedTicket && (
-        <div style={{ border: '1px solid #444', padding: '8px', marginTop: '8px' }}>
-          <h3>{selectedTicket.title}</h3>
-          <div>{selectedTicket.description}</div>
-          <div>Status: {selectedTicket.status}</div>
+        <div className="ticket-detail">
+          <div className="card-header">
+            <h3>{selectedTicket.title}</h3>
+            <span className={`badge ${STATUS_BADGE_CLASS[selectedTicket.status] ?? ''}`}>
+              {selectedTicket.status}
+            </span>
+          </div>
+          <p>{selectedTicket.description}</p>
 
-          {selectedTicket.status === 'open' && (
-            <button onClick={() => handleStatusChange('investigating')}>
-              Start Investigation
-            </button>
-          )}
-          {selectedTicket.status === 'investigating' && (
-            <button onClick={() => handleStatusChange('closed')}>Close Ticket</button>
-          )}
+          <div className="field-row">
+            {selectedTicket.status === 'open' && (
+              <button className="btn" onClick={() => handleStatusChange('investigating')}>
+                Start Investigation
+              </button>
+            )}
+            {selectedTicket.status === 'investigating' && (
+              <button className="btn" onClick={() => handleStatusChange('closed')}>
+                Close Ticket
+              </button>
+            )}
+          </div>
 
           <h4>Audit Log</h4>
-          <ul>
+          <ul className="audit-log">
             {(selectedTicket.auditLog ?? []).map((entry, index) => (
               <li key={index}>
                 {entry.timestamp} — {entry.action}: {entry.note}

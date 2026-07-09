@@ -45,111 +45,170 @@ function App() {
   };
 
   return (
-    <div>
-      <button onClick={() => setActiveTab('editor')}>Network Editor</button>
-      <button onClick={() => setActiveTab('siem')}>SIEM Dashboard</button>
-      <button onClick={() => setActiveTab('soc')}>SOC Tickets</button>
+    <div className="app-shell">
+      <div className="tab-bar">
+        <button
+          className={`tab-button ${activeTab === 'editor' ? 'active' : ''}`}
+          onClick={() => setActiveTab('editor')}
+        >
+          Network Editor
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'siem' ? 'active' : ''}`}
+          onClick={() => setActiveTab('siem')}
+        >
+          SIEM Dashboard
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'soc' ? 'active' : ''}`}
+          onClick={() => setActiveTab('soc')}
+        >
+          SOC Tickets
+        </button>
+      </div>
 
       {activeTab === 'siem' && <SiemDashboard />}
       {activeTab === 'soc' && <SocDashboard />}
 
       {activeTab === 'editor' && (
         <div>
-      <button onClick={() => addDevice('router', 100, 100)}>Add Router</button>
+          <div className="section">
+            <h2>Devices</h2>
+            <div className="field-row">
+              <button className="btn" onClick={() => addDevice('router', 100, 100)}>
+                Add Router
+              </button>
+            </div>
+          </div>
 
-      <select value={sourceDeviceId} onChange={(event) => setSourceDeviceId(event.target.value)}>
-        <option value="">Source device</option>
-        {devices.map((device) => (
-          <option key={device.id} value={device.id}>
-            {device.name}
-          </option>
-        ))}
-      </select>
+          <div className="section">
+            <h2>Send Packet</h2>
+            <div className="field-row">
+              <select
+                value={sourceDeviceId}
+                onChange={(event) => setSourceDeviceId(event.target.value)}
+              >
+                <option value="">Source device</option>
+                {devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.name}
+                  </option>
+                ))}
+              </select>
 
-      <select value={targetDeviceId} onChange={(event) => setTargetDeviceId(event.target.value)}>
-        <option value="">Target device</option>
-        {devices.map((device) => (
-          <option key={device.id} value={device.id}>
-            {device.name}
-          </option>
-        ))}
-      </select>
+              <select
+                value={targetDeviceId}
+                onChange={(event) => setTargetDeviceId(event.target.value)}
+              >
+                <option value="">Target device</option>
+                {devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.name}
+                  </option>
+                ))}
+              </select>
 
-      <button onClick={() => sendPacket(sourceDeviceId, targetDeviceId)}>Send Test Packet</button>
+              <button className="btn" onClick={() => sendPacket(sourceDeviceId, targetDeviceId)}>
+                Send Test Packet
+              </button>
+            </div>
+          </div>
 
-      <select value={attackerDeviceId} onChange={(event) => setAttackerDeviceId(event.target.value)}>
-        <option value="">Attacker device</option>
-        {devices.map((device) => (
-          <option key={device.id} value={device.id}>
-            {device.name}
-          </option>
-        ))}
-      </select>
+          <div className="section">
+            <h2>ARP Attack</h2>
+            <div className="field-row">
+              <select
+                value={attackerDeviceId}
+                onChange={(event) => setAttackerDeviceId(event.target.value)}
+              >
+                <option value="">Attacker device</option>
+                {devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.name}
+                  </option>
+                ))}
+              </select>
 
-      <select value={victimDeviceId} onChange={(event) => setVictimDeviceId(event.target.value)}>
-        <option value="">Victim device</option>
-        {devices.map((device) => (
-          <option key={device.id} value={device.id}>
-            {device.name}
-          </option>
-        ))}
-      </select>
+              <select
+                value={victimDeviceId}
+                onChange={(event) => setVictimDeviceId(event.target.value)}
+              >
+                <option value="">Victim device</option>
+                {devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.name}
+                  </option>
+                ))}
+              </select>
 
-      <select
-        value={impersonatedDeviceId}
-        onChange={(event) => setImpersonatedDeviceId(event.target.value)}
-      >
-        <option value="">Impersonated device</option>
-        {devices.map((device) => (
-          <option key={device.id} value={device.id}>
-            {device.name}
-          </option>
-        ))}
-      </select>
+              <select
+                value={impersonatedDeviceId}
+                onChange={(event) => setImpersonatedDeviceId(event.target.value)}
+              >
+                <option value="">Impersonated device</option>
+                {devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.name}
+                  </option>
+                ))}
+              </select>
 
-      <button onClick={handleTriggerArpSpoof}>Trigger ARP Spoof</button>
+              <button className="btn" onClick={handleTriggerArpSpoof}>
+                Trigger ARP Spoof
+              </button>
+            </div>
+          </div>
 
-      <select
-        value={dnsAttackerDeviceId}
-        onChange={(event) => setDnsAttackerDeviceId(event.target.value)}
-      >
-        <option value="">DNS attacker device</option>
-        {devices.map((device) => (
-          <option key={device.id} value={device.id}>
-            {device.name}
-          </option>
-        ))}
-      </select>
+          <div className="section">
+            <h2>DNS Attack</h2>
+            <div className="field-row">
+              <select
+                value={dnsAttackerDeviceId}
+                onChange={(event) => setDnsAttackerDeviceId(event.target.value)}
+              >
+                <option value="">DNS attacker device</option>
+                {devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.name}
+                  </option>
+                ))}
+              </select>
 
-      <select
-        value={dnsVictimDeviceId}
-        onChange={(event) => setDnsVictimDeviceId(event.target.value)}
-      >
-        <option value="">DNS victim device</option>
-        {devices.map((device) => (
-          <option key={device.id} value={device.id}>
-            {device.name}
-          </option>
-        ))}
-      </select>
+              <select
+                value={dnsVictimDeviceId}
+                onChange={(event) => setDnsVictimDeviceId(event.target.value)}
+              >
+                <option value="">DNS victim device</option>
+                {devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.name}
+                  </option>
+                ))}
+              </select>
 
-      <input
-        type="text"
-        placeholder="Target domain"
-        value={targetDomain}
-        onChange={(event) => setTargetDomain(event.target.value)}
-      />
+              <input
+                type="text"
+                placeholder="Target domain"
+                value={targetDomain}
+                onChange={(event) => setTargetDomain(event.target.value)}
+              />
 
-      <input
-        type="text"
-        placeholder="Fake IP"
-        value={fakeIp}
-        onChange={(event) => setFakeIp(event.target.value)}
-      />
+              <input
+                type="text"
+                placeholder="Fake IP"
+                value={fakeIp}
+                onChange={(event) => setFakeIp(event.target.value)}
+              />
 
-      <button onClick={handleTriggerDnsPoison}>Trigger DNS Poison</button>
+              <button className="btn" onClick={handleTriggerDnsPoison}>
+                Trigger DNS Poison
+              </button>
+            </div>
+          </div>
 
-      <TopologyCanvas />
+          <div className="canvas-frame">
+            <TopologyCanvas />
+          </div>
         </div>
       )}
     </div>
