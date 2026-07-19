@@ -1,4 +1,4 @@
-import { Circle, Group, Rect, Text } from 'react-konva';
+import { Circle, Group, Line, Rect, Text } from 'react-konva';
 import { useTopologyStore } from '../store/topologyStore';
 
 const COLORS_BY_TYPE = {
@@ -47,12 +47,24 @@ function DeviceNode({ device }) {
     }
   };
 
-  const shape =
-    device.type === 'pc' ? (
+  let shape;
+  if (device.type === 'pc') {
+    shape = (
       <Rect width={40} height={40} offsetX={20} offsetY={20} fill={fill} onClick={handleClick} />
-    ) : (
-      <Circle radius={20} fill={fill} onClick={handleClick} />
     );
+  } else if (device.type === 'switch') {
+    shape = (
+      <Group onClick={handleClick}>
+        <Rect width={50} height={30} offsetX={25} offsetY={15} fill={fill} />
+        <Line points={[-15, 8, -15, 15]} stroke="white" strokeWidth={2} />
+        <Line points={[-5, 8, -5, 15]} stroke="white" strokeWidth={2} />
+        <Line points={[5, 8, 5, 15]} stroke="white" strokeWidth={2} />
+        <Line points={[15, 8, 15, 15]} stroke="white" strokeWidth={2} />
+      </Group>
+    );
+  } else {
+    shape = <Circle radius={20} fill={fill} onClick={handleClick} />;
+  }
 
   return (
     <Group x={device.x} y={device.y} draggable onDragEnd={handleDragEnd}>
