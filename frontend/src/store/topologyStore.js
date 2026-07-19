@@ -3,7 +3,6 @@ import { createPacket } from '../engine/packetMovement';
 import { buildArpTable, simulateArpSpoof } from '../engine/arpSpoofing';
 import { buildDnsTable, simulateDnsPoison } from '../engine/dnsPoisoning';
 import { postSecurityEvent } from '../api/client';
-import { useAuthStore } from './authStore';
 
 let deviceIdCounter = 0;
 
@@ -193,9 +192,7 @@ export const useTopologyStore = create((set, get) => ({
       return { arpTables, arpAttackLog: [...state.arpAttackLog, logEntry] };
     });
 
-    const token = useAuthStore.getState().token;
-
-    postSecurityEvent(token, {
+    postSecurityEvent({
       eventType: isBlocked ? 'firewall_blocked_arp_spoof' : 'arp_spoof',
       attackerDeviceId,
       victimDeviceId,
@@ -225,9 +222,7 @@ export const useTopologyStore = create((set, get) => ({
       return { dnsTables };
     });
 
-    const token = useAuthStore.getState().token;
-
-    postSecurityEvent(token, {
+    postSecurityEvent({
       eventType: isBlocked ? 'firewall_blocked_dns_spoof' : 'dns_poison',
       attackerDeviceId,
       victimDeviceId,

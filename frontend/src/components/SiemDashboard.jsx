@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { getAlerts, getSecurityEvents } from '../api/client';
-import { useAuthStore } from '../store/authStore';
 
 const SEVERITY_BADGE_CLASS = {
   high: 'badge-high',
@@ -9,7 +8,6 @@ const SEVERITY_BADGE_CLASS = {
 };
 
 function SiemDashboard() {
-  const token = useAuthStore((state) => state.token);
   const [alerts, setAlerts] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +15,7 @@ function SiemDashboard() {
 
   const loadData = () => {
     setError(null);
-    Promise.all([getAlerts(token), getSecurityEvents(token)])
+    Promise.all([getAlerts(), getSecurityEvents()])
       .then(([alertsData, eventsData]) => {
         setAlerts(alertsData);
         setEvents(eventsData);
@@ -25,7 +23,7 @@ function SiemDashboard() {
       .catch((err) => {
         setAlerts([]);
         setEvents([]);
-        setError('Please log in to view this data.');
+        setError('Failed to load data. Please try again.');
         console.error(err);
       })
       .finally(() => setLoading(false));

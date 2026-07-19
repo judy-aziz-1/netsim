@@ -2,14 +2,9 @@ import { useState } from 'react';
 import TopologyCanvas from './components/TopologyCanvas';
 import SiemDashboard from './components/SiemDashboard';
 import SocDashboard from './components/SocDashboard';
-import AuthForm from './components/AuthForm';
 import { useTopologyStore } from './store/topologyStore';
-import { useAuthStore } from './store/authStore';
-import { logoutUser } from './api/client';
 
 function App() {
-  const token = useAuthStore((state) => state.token);
-  const setToken = useAuthStore((state) => state.setToken);
   const [activeTab, setActiveTab] = useState('editor');
   const addDevice = useTopologyStore((state) => state.addDevice);
   const sendPacket = useTopologyStore((state) => state.sendPacket);
@@ -49,26 +44,8 @@ function App() {
     alert(`victim device ${victim?.name} now resolves ${targetDomain} to ${fakeIp}`);
   };
 
-  const handleLogout = () => {
-    logoutUser(token)
-      .catch((error) => console.error('Failed to log out', error))
-      .finally(() => setToken(null));
-  };
-
-  if (!token) {
-    return (
-      <div className="app-shell">
-        <AuthForm />
-      </div>
-    );
-  }
-
   return (
     <div className="app-shell">
-      <div className="field-row">
-        <button className="btn" onClick={handleLogout}>Logout</button>
-      </div>
-
       <div className="tab-bar">
         <button
           className={`tab-button ${activeTab === 'editor' ? 'active' : ''}`}

@@ -5,7 +5,6 @@ import {
   getIncidentTickets,
   updateTicketStatus,
 } from '../api/client';
-import { useAuthStore } from '../store/authStore';
 
 const STATUS_BADGE_CLASS = {
   open: 'badge-open',
@@ -14,7 +13,6 @@ const STATUS_BADGE_CLASS = {
 };
 
 function SocDashboard() {
-  const token = useAuthStore((state) => state.token);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,11 +23,11 @@ function SocDashboard() {
 
   const loadTickets = () => {
     setError(null);
-    getIncidentTickets(token)
+    getIncidentTickets()
       .then(setTickets)
       .catch((err) => {
         setTickets([]);
-        setError('Please log in to view this data.');
+        setError('Failed to load data. Please try again.');
         console.error(err);
       })
       .finally(() => setLoading(false));
@@ -45,11 +43,11 @@ function SocDashboard() {
       return;
     }
 
-    getIncidentTicket(token, selectedTicketId).then(setSelectedTicket).catch(console.error);
+    getIncidentTicket(selectedTicketId).then(setSelectedTicket).catch(console.error);
   }, [selectedTicketId, tickets]);
 
   const handleSubmit = () => {
-    createIncidentTicket(token, title, description)
+    createIncidentTicket(title, description)
       .then(() => {
         setTitle('');
         setDescription('');
@@ -59,7 +57,7 @@ function SocDashboard() {
   };
 
   const handleStatusChange = (status) => {
-    updateTicketStatus(token, selectedTicketId, status, '')
+    updateTicketStatus(selectedTicketId, status, '')
       .then(() => loadTickets())
       .catch(console.error);
   };

@@ -1,46 +1,13 @@
 const BASE_URL = 'http://127.0.0.1:8000/api';
 
-export async function registerUser(name, email, password) {
-  const res = await fetch(`${BASE_URL}/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, password }),
-  });
+export async function getTopologies() {
+  const res = await fetch(`${BASE_URL}/network-topologies`);
 
   return res.json();
 }
 
-export async function loginUser(email, password) {
-  const res = await fetch(`${BASE_URL}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-
-  return res.json();
-}
-
-export async function logoutUser(token) {
-  const res = await fetch(`${BASE_URL}/logout`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  return res.json();
-}
-
-export async function getTopologies(token) {
-  const res = await fetch(`${BASE_URL}/network-topologies`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  return res.json();
-}
-
-export async function getSecurityEvents(token) {
-  const res = await fetch(`${BASE_URL}/security-events`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function getSecurityEvents() {
+  const res = await fetch(`${BASE_URL}/security-events`);
 
   if (!res.ok) {
     throw new Error(`getSecurityEvents failed with status ${res.status}`);
@@ -49,10 +16,8 @@ export async function getSecurityEvents(token) {
   return res.json();
 }
 
-export async function getAlerts(token) {
-  const res = await fetch(`${BASE_URL}/alerts`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function getAlerts() {
+  const res = await fetch(`${BASE_URL}/alerts`);
 
   if (!res.ok) {
     throw new Error(`getAlerts failed with status ${res.status}`);
@@ -61,10 +26,8 @@ export async function getAlerts(token) {
   return res.json();
 }
 
-export async function getIncidentTickets(token) {
-  const res = await fetch(`${BASE_URL}/incident-tickets`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function getIncidentTickets() {
+  const res = await fetch(`${BASE_URL}/incident-tickets`);
 
   if (!res.ok) {
     throw new Error(`getIncidentTickets failed with status ${res.status}`);
@@ -73,13 +36,10 @@ export async function getIncidentTickets(token) {
   return res.json();
 }
 
-export async function createIncidentTicket(token, title, description) {
+export async function createIncidentTicket(title, description) {
   const res = await fetch(`${BASE_URL}/incident-tickets`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, description }),
   });
 
@@ -90,10 +50,8 @@ export async function createIncidentTicket(token, title, description) {
   return res.json();
 }
 
-export async function getIncidentTicket(token, id) {
-  const res = await fetch(`${BASE_URL}/incident-tickets/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function getIncidentTicket(id) {
+  const res = await fetch(`${BASE_URL}/incident-tickets/${id}`);
 
   if (!res.ok) {
     throw new Error(`getIncidentTicket failed with status ${res.status}`);
@@ -102,13 +60,10 @@ export async function getIncidentTicket(token, id) {
   return res.json();
 }
 
-export async function updateTicketStatus(token, id, status, note) {
+export async function updateTicketStatus(id, status, note) {
   const res = await fetch(`${BASE_URL}/incident-tickets/${id}/status`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status, note }),
   });
 
@@ -119,13 +74,10 @@ export async function updateTicketStatus(token, id, status, note) {
   return res.json();
 }
 
-export async function postSecurityEvent(token, eventData) {
+export async function postSecurityEvent(eventData) {
   const res = await fetch(`${BASE_URL}/security-events`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(eventData),
   });
 
