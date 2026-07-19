@@ -84,6 +84,9 @@ function App() {
               <button className="btn" onClick={() => addDevice('switch', 300, 100)}>
                 Add Switch
               </button>
+              <button className="btn" onClick={() => addDevice('firewall', 400, 100)}>
+                Add Firewall
+              </button>
             </div>
           </div>
 

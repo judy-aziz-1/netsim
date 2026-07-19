@@ -174,19 +174,20 @@ export const useTopologyStore = create((set, get) => ({
       return;
     }
 
+    const victim = devices.find((device) => device.id === victimDeviceId);
+    const isBlocked = victim?.type === 'firewall';
+
     set((state) => {
-      const arpTables = simulateArpSpoof(
-        state.arpTables,
-        attackerDeviceId,
-        victimDeviceId,
-        impersonatedDeviceId,
-      );
+      const arpTables = isBlocked
+        ? state.arpTables
+        : simulateArpSpoof(state.arpTables, attackerDeviceId, victimDeviceId, impersonatedDeviceId);
 
       const logEntry = {
         timestamp: Date.now(),
         attackerDeviceId,
         victimDeviceId,
         impersonatedDeviceId,
+        blocked: isBlocked,
       };
 
       return { arpTables, arpAttackLog: [...state.arpAttackLog, logEntry] };
@@ -195,7 +196,7 @@ export const useTopologyStore = create((set, get) => ({
     const token = useAuthStore.getState().token;
 
     postSecurityEvent(token, {
-      eventType: 'arp_spoof',
+      eventType: isBlocked ? 'firewall_blocked_arp_spoof' : 'arp_spoof',
       attackerDeviceId,
       victimDeviceId,
       impersonatedDeviceId,
@@ -213,14 +214,13 @@ export const useTopologyStore = create((set, get) => ({
       return;
     }
 
+    const victim = devices.find((device) => device.id === victimDeviceId);
+    const isBlocked = victim?.type === 'firewall';
+
     set((state) => {
-      const dnsTables = simulateDnsPoison(
-        state.dnsTables,
-        attackerDeviceId,
-        victimDeviceId,
-        targetDomain,
-        fakeIp,
-      );
+      const dnsTables = isBlocked
+        ? state.dnsTables
+        : simulateDnsPoison(state.dnsTables, attackerDeviceId, victimDeviceId, targetDomain, fakeIp);
 
       return { dnsTables };
     });
@@ -228,7 +228,7 @@ export const useTopologyStore = create((set, get) => ({
     const token = useAuthStore.getState().token;
 
     postSecurityEvent(token, {
-      eventType: 'dns_poison',
+      eventType: isBlocked ? 'firewall_blocked_dns_spoof' : 'dns_poison',
       attackerDeviceId,
       victimDeviceId,
       details: { targetDomain, fakeIp },

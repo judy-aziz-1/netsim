@@ -1,10 +1,11 @@
-import { Circle, Group, Line, Rect, Text } from 'react-konva';
+import { Circle, Group, Line, RegularPolygon, Rect, Text } from 'react-konva';
 import { useTopologyStore } from '../store/topologyStore';
 
 const COLORS_BY_TYPE = {
   router: 'steelblue',
   switch: 'seagreen',
   pc: 'darkorange',
+  firewall: 'firebrick',
 };
 
 const CONNECTING_COLOR = 'gold';
@@ -61,6 +62,16 @@ function DeviceNode({ device }) {
         <Line points={[5, 8, 5, 15]} stroke="white" strokeWidth={2} />
         <Line points={[15, 8, 15, 15]} stroke="white" strokeWidth={2} />
       </Group>
+    );
+  } else if (device.type === 'firewall') {
+    shape = (
+      <RegularPolygon
+        sides={4}
+        radius={24}
+        rotation={45}
+        fill={fill}
+        onClick={handleClick}
+      />
     );
   } else {
     shape = <Circle radius={20} fill={fill} onClick={handleClick} />;

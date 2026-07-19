@@ -75,14 +75,20 @@ function SiemDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {events.map((event) => (
-                  <tr key={event.id}>
-                    <td>{event.eventType}</td>
-                    <td>{event.attackerDeviceId}</td>
-                    <td>{event.victimDeviceId}</td>
-                    <td>{event.created_at}</td>
-                  </tr>
-                ))}
+                {events.map((event) => {
+                  const isBlocked = event.eventType?.startsWith('firewall_blocked');
+
+                  return (
+                    <tr key={event.id}>
+                      <td className={isBlocked ? 'badge-blocked' : ''}>
+                        {isBlocked ? `🛡️ Blocked: ${event.eventType}` : event.eventType}
+                      </td>
+                      <td>{event.attackerDeviceId}</td>
+                      <td>{event.victimDeviceId}</td>
+                      <td>{event.created_at}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

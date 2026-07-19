@@ -170,6 +170,8 @@ button, input, select, textarea {
 .badge-closed { background: var(--color-closed); }
 .badge-neutral { background: var(--text-muted); }
 
+.badge-blocked { color: seagreen; font-weight: 700; }
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
