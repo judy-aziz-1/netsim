@@ -23,6 +23,10 @@ export async function getSecurityEvents(token) {
     headers: { Authorization: `Bearer ${token}` },
   });
 
+  if (!res.ok) {
+    throw new Error(`getSecurityEvents failed with status ${res.status}`);
+  }
+
   return res.json();
 }
 
@@ -30,6 +34,10 @@ export async function getAlerts(token) {
   const res = await fetch(`${BASE_URL}/alerts`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+
+  if (!res.ok) {
+    throw new Error(`getAlerts failed with status ${res.status}`);
+  }
 
   return res.json();
 }

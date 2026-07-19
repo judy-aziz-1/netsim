@@ -49,7 +49,7 @@ function SiemDashboard() {
         <>
           <div className="section">
             <h2>Alerts</h2>
-            {alerts.map((alert) => (
+            {Array.isArray(alerts) && alerts.map((alert) => (
               <div key={alert.id} className="card">
                 <div className="card-header">
                   <span className={`badge ${SEVERITY_BADGE_CLASS[alert.severity] ?? ''}`}>
@@ -75,7 +75,7 @@ function SiemDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {events.map((event) => {
+                {Array.isArray(events) && events.map((event) => {
                   const isBlocked = event.eventType?.startsWith('firewall_blocked');
 
                   return (
