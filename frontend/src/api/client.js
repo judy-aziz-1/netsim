@@ -47,6 +47,10 @@ export async function getIncidentTickets(token) {
     headers: { Authorization: `Bearer ${token}` },
   });
 
+  if (!res.ok) {
+    throw new Error(`getIncidentTickets failed with status ${res.status}`);
+  }
+
   return res.json();
 }
 
@@ -60,6 +64,10 @@ export async function createIncidentTicket(token, title, description) {
     body: JSON.stringify({ title, description }),
   });
 
+  if (!res.ok) {
+    throw new Error(`createIncidentTicket failed with status ${res.status}`);
+  }
+
   return res.json();
 }
 
@@ -67,6 +75,10 @@ export async function getIncidentTicket(token, id) {
   const res = await fetch(`${BASE_URL}/incident-tickets/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+
+  if (!res.ok) {
+    throw new Error(`getIncidentTicket failed with status ${res.status}`);
+  }
 
   return res.json();
 }
@@ -80,6 +92,10 @@ export async function updateTicketStatus(token, id, status, note) {
     },
     body: JSON.stringify({ status, note }),
   });
+
+  if (!res.ok) {
+    throw new Error(`updateTicketStatus failed with status ${res.status}`);
+  }
 
   return res.json();
 }

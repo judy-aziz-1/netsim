@@ -96,7 +96,7 @@ function SocDashboard() {
         {loading ? (
           <p className="loading-text">Loading...</p>
         ) : (
-          tickets.map((ticket) => (
+          Array.isArray(tickets) && tickets.map((ticket) => (
             <div
               key={ticket.id}
               className="card clickable"
@@ -138,7 +138,7 @@ function SocDashboard() {
 
           <h4>Audit Log</h4>
           <ul className="audit-log">
-            {(selectedTicket.auditLog ?? []).map((entry, index) => (
+            {Array.isArray(selectedTicket.auditLog) && selectedTicket.auditLog.map((entry, index) => (
               <li key={index}>
                 {entry.timestamp} — {entry.action}: {entry.note}
               </li>
