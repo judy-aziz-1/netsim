@@ -1,0 +1,13 @@
+.env
+.env.backup
+.env.production
+.git
+.gitignore
+vendor
+node_modules
+storage/logs
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+.phpunit.cache
+.phpunit.result.cache
