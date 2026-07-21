@@ -6,6 +6,8 @@ const COLORS_BY_TYPE = {
   switch: 'seagreen',
   pc: 'darkorange',
   firewall: 'firebrick',
+  server: 'slategray',
+  attacker: '#e74c3c',
 };
 
 const CONNECTING_COLOR = 'gold';
@@ -17,6 +19,7 @@ function DeviceNode({ device }) {
   const removeDevice = useTopologyStore((state) => state.removeDevice);
   const connectingFromDeviceId = useTopologyStore((state) => state.connectingFromDeviceId);
   const setConnectingFromDeviceId = useTopologyStore((state) => state.setConnectingFromDeviceId);
+  const pendingLinkType = useTopologyStore((state) => state.pendingLinkType);
 
   const isConnecting = connectingFromDeviceId === device.id;
   const fill = isConnecting ? CONNECTING_COLOR : COLORS_BY_TYPE[device.type] ?? 'gray';
@@ -36,8 +39,12 @@ function DeviceNode({ device }) {
       return;
     }
 
-    addLink(connectingFromDeviceId, device.id);
+    const result = addLink(connectingFromDeviceId, device.id, pendingLinkType);
     setConnectingFromDeviceId(null);
+
+    if (!result?.success) {
+      alert(result?.reason ?? 'Cannot add link');
+    }
   };
 
   const handleDeleteClick = (event) => {
@@ -72,6 +79,22 @@ function DeviceNode({ device }) {
         fill={fill}
         onClick={handleClick}
       />
+    );
+  } else if (device.type === 'server') {
+    shape = (
+      <Group onClick={handleClick}>
+        <Rect width={36} height={48} offsetX={18} offsetY={24} fill={fill} />
+        <Line points={[-14, -12, 14, -12]} stroke="white" strokeWidth={2} />
+        <Line points={[-14, 0, 14, 0]} stroke="white" strokeWidth={2} />
+        <Line points={[-14, 12, 14, 12]} stroke="white" strokeWidth={2} />
+      </Group>
+    );
+  } else if (device.type === 'attacker') {
+    shape = (
+      <Group onClick={handleClick}>
+        <Line points={[-15, 20, 15, 20, 0, -6]} closed fill={fill} />
+        <Circle y={-14} radius={9} fill={fill} />
+      </Group>
     );
   } else {
     shape = <Circle radius={20} fill={fill} onClick={handleClick} />;

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Circle } from 'react-konva';
 import { useTopologyStore } from '../store/topologyStore';
 import { advancePacket, isPacketArrived, getPacketPosition } from '../engine/packetMovement';
+import { getSpeedMultiplier } from '../engine/connectionCapabilities';
 
 const PACKET_SPEED = 0.7;
 
@@ -9,6 +10,14 @@ function Packet({ packet }) {
   const devices = useTopologyStore((state) => state.devices);
   const updatePacketState = useTopologyStore((state) => state.updatePacketState);
   const removePacket = useTopologyStore((state) => state.removePacket);
+  const links = useTopologyStore((state) => state.links);
+
+  const link = links.find(
+    (candidate) =>
+      (candidate.sourceDeviceId === packet.sourceNodeId && candidate.targetDeviceId === packet.targetNodeId) ||
+      (candidate.sourceDeviceId === packet.targetNodeId && candidate.targetDeviceId === packet.sourceNodeId),
+  );
+  const speed = PACKET_SPEED * getSpeedMultiplier(link?.type ?? 'standard');
 
   const packetRef = useRef(packet);
   const lastTimeRef = useRef(null);
@@ -35,7 +44,7 @@ function Packet({ packet }) {
       lastTimeRef.current = time;
 
       const currentPacket = packetRef.current;
-      const advanced = advancePacket(currentPacket, deltaTime, PACKET_SPEED);
+      const advanced = advancePacket(currentPacket, deltaTime, speed);
 
       const currentNodePositions = {};
       useTopologyStore.getState().devices.forEach((device) => {

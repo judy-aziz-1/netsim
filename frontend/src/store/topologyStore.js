@@ -3,6 +3,9 @@ import { createPacket } from '../engine/packetMovement';
 import { buildArpTable, simulateArpSpoof } from '../engine/arpSpoofing';
 import { buildDnsTable, simulateDnsPoison } from '../engine/dnsPoisoning';
 import { postSecurityEvent } from '../api/client';
+import { getMaxConnections, isImmuneToAttack } from '../engine/deviceCapabilities';
+import { canBeAttacker, canBeVictim } from '../engine/attackRoles';
+import { isValidConnectionType } from '../engine/connectionCapabilities';
 
 let deviceIdCounter = 0;
 
@@ -26,6 +29,7 @@ export const useTopologyStore = create((set, get) => ({
   devices: [],
   links: [],
   connectingFromDeviceId: null,
+  pendingLinkType: 'standard',
   activePackets: [],
   arpTables: {},
   arpAttackLog: [],
@@ -87,8 +91,50 @@ export const useTopologyStore = create((set, get) => ({
       };
     }),
 
-  addLink: (sourceId, targetId) =>
+  addLink: (sourceId, targetId, type = 'standard') => {
+    const devices = get().devices;
+    const sourceDevice = devices.find((device) => device.id === sourceId);
+    const targetDevice = devices.find((device) => device.id === targetId);
+
+    if (!sourceDevice || !targetDevice) {
+      const reason = 'Cannot add link: one or both devices not found';
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    if (type !== 'standard' && !isValidConnectionType(type, sourceDevice.type, targetDevice.type)) {
+      const reason = `Cannot add link: connection type '${type}' is not valid between ${sourceDevice.name} (${sourceDevice.type}) and ${targetDevice.name} (${targetDevice.type})`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    let result = { success: true };
+
     set((state) => {
+      const countConnections = (deviceId) =>
+        state.links.filter(
+          (link) => link.sourceDeviceId === deviceId || link.targetDeviceId === deviceId,
+        ).length;
+
+      const sourceMax = getMaxConnections(sourceDevice.type);
+      const targetMax = getMaxConnections(targetDevice.type);
+
+      if (countConnections(sourceId) >= sourceMax) {
+        result = {
+          success: false,
+          reason: `Cannot add link: ${sourceDevice.name} (${sourceDevice.type}) already has the maximum of ${sourceMax} connection(s)`,
+        };
+        return state;
+      }
+
+      if (countConnections(targetId) >= targetMax) {
+        result = {
+          success: false,
+          reason: `Cannot add link: ${targetDevice.name} (${targetDevice.type}) already has the maximum of ${targetMax} connection(s)`,
+        };
+        return state;
+      }
+
       const alreadyExists = state.links.some(
         (link) =>
           (link.sourceDeviceId === sourceId && link.targetDeviceId === targetId) ||
@@ -96,6 +142,7 @@ export const useTopologyStore = create((set, get) => ({
       );
 
       if (alreadyExists) {
+        result = { success: false, reason: 'Link already exists' };
         return state;
       }
 
@@ -105,12 +152,20 @@ export const useTopologyStore = create((set, get) => ({
         id: `link-${linkIdCounter}`,
         sourceDeviceId: sourceId,
         targetDeviceId: targetId,
+        type,
       };
 
       const links = [...state.links, link];
 
       return { links, arpTables: buildArpTable(state.devices, links) };
-    }),
+    });
+
+    if (!result.success) {
+      console.warn(result.reason);
+    }
+
+    return result;
+  },
 
   removeLink: (id) =>
     set((state) => {
@@ -120,6 +175,8 @@ export const useTopologyStore = create((set, get) => ({
     }),
 
   setConnectingFromDeviceId: (id) => set({ connectingFromDeviceId: id }),
+
+  setPendingLinkType: (type) => set({ pendingLinkType: type }),
 
   sendPacket: (sourceDeviceId, targetDeviceId) => {
     const devices = get().devices;
@@ -169,12 +226,27 @@ export const useTopologyStore = create((set, get) => ({
     );
 
     if (!devicesExist) {
-      console.warn('Cannot trigger ARP spoof: one or more devices not found');
-      return;
+      const reason = 'Cannot trigger ARP spoof: one or more devices not found';
+      console.warn(reason);
+      return { success: false, reason };
     }
 
+    const attacker = devices.find((device) => device.id === attackerDeviceId);
     const victim = devices.find((device) => device.id === victimDeviceId);
-    const isBlocked = victim?.type === 'firewall';
+
+    if (!canBeAttacker(attacker.type)) {
+      const reason = `Cannot trigger ARP spoof: ${attacker.name} (${attacker.type}) cannot act as an attacker`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    if (!canBeVictim(victim.type)) {
+      const reason = `Cannot trigger ARP spoof: ${victim.name} (${victim.type}) cannot be targeted as a victim`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    const isBlocked = isImmuneToAttack(victim.type, 'arp_spoof');
 
     set((state) => {
       const arpTables = isBlocked
@@ -198,6 +270,8 @@ export const useTopologyStore = create((set, get) => ({
       victimDeviceId,
       impersonatedDeviceId,
     }).catch((error) => console.error('Failed to send security event', error));
+
+    return { success: true };
   },
 
   triggerDnsPoison: (attackerDeviceId, victimDeviceId, targetDomain, fakeIp) => {
@@ -207,12 +281,27 @@ export const useTopologyStore = create((set, get) => ({
     );
 
     if (!devicesExist) {
-      console.warn('Cannot trigger DNS poison: one or more devices not found');
-      return;
+      const reason = 'Cannot trigger DNS poison: one or more devices not found';
+      console.warn(reason);
+      return { success: false, reason };
     }
 
+    const attacker = devices.find((device) => device.id === attackerDeviceId);
     const victim = devices.find((device) => device.id === victimDeviceId);
-    const isBlocked = victim?.type === 'firewall';
+
+    if (!canBeAttacker(attacker.type)) {
+      const reason = `Cannot trigger DNS poison: ${attacker.name} (${attacker.type}) cannot act as an attacker`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    if (!canBeVictim(victim.type)) {
+      const reason = `Cannot trigger DNS poison: ${victim.name} (${victim.type}) cannot be targeted as a victim`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    const isBlocked = isImmuneToAttack(victim.type, 'dns_poison');
 
     set((state) => {
       const dnsTables = isBlocked
@@ -228,5 +317,7 @@ export const useTopologyStore = create((set, get) => ({
       victimDeviceId,
       details: { targetDomain, fakeIp },
     }).catch((error) => console.error('Failed to send security event', error));
+
+    return { success: true };
   },
 }));

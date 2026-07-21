@@ -13,11 +13,13 @@ function LinkLine({ link }) {
     return null;
   }
 
+  const isBackbone = link.type === 'backbone';
+
   return (
     <Line
       points={[sourceDevice.x, sourceDevice.y, targetDevice.x, targetDevice.y]}
-      stroke="black"
-      strokeWidth={2}
+      stroke={isBackbone ? '#4d9fff' : '#7d8590'}
+      strokeWidth={isBackbone ? 4 : 2}
     />
   );
 }

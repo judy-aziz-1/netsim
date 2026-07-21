@@ -7,6 +7,8 @@ import { useTopologyStore } from './store/topologyStore';
 function App() {
   const [activeTab, setActiveTab] = useState('editor');
   const addDevice = useTopologyStore((state) => state.addDevice);
+  const pendingLinkType = useTopologyStore((state) => state.pendingLinkType);
+  const setPendingLinkType = useTopologyStore((state) => state.setPendingLinkType);
   const sendPacket = useTopologyStore((state) => state.sendPacket);
   const triggerArpSpoof = useTopologyStore((state) => state.triggerArpSpoof);
   const triggerDnsPoison = useTopologyStore((state) => state.triggerDnsPoison);
@@ -25,7 +27,12 @@ function App() {
   const [fakeIp, setFakeIp] = useState('');
 
   const handleTriggerArpSpoof = () => {
-    triggerArpSpoof(attackerDeviceId, victimDeviceId, impersonatedDeviceId);
+    const result = triggerArpSpoof(attackerDeviceId, victimDeviceId, impersonatedDeviceId);
+
+    if (!result?.success) {
+      alert(result?.reason ?? 'Cannot trigger ARP spoof');
+      return;
+    }
 
     const attacker = devices.find((device) => device.id === attackerDeviceId);
     const victim = devices.find((device) => device.id === victimDeviceId);
@@ -37,7 +44,12 @@ function App() {
   };
 
   const handleTriggerDnsPoison = () => {
-    triggerDnsPoison(dnsAttackerDeviceId, dnsVictimDeviceId, targetDomain, fakeIp);
+    const result = triggerDnsPoison(dnsAttackerDeviceId, dnsVictimDeviceId, targetDomain, fakeIp);
+
+    if (!result?.success) {
+      alert(result?.reason ?? 'Cannot trigger DNS poison');
+      return;
+    }
 
     const victim = devices.find((device) => device.id === dnsVictimDeviceId);
 
@@ -46,6 +58,11 @@ function App() {
 
   return (
     <div className="app-shell">
+      <div className="app-header">
+        <h1 className="app-title">NetSim</h1>
+        <span className="app-subtitle">SIEM / SOC Network Simulator</span>
+      </div>
+
       <div className="tab-bar">
         <button
           className={`tab-button ${activeTab === 'editor' ? 'active' : ''}`}
@@ -86,6 +103,31 @@ function App() {
               </button>
               <button className="btn" onClick={() => addDevice('firewall', 400, 100)}>
                 Add Firewall
+              </button>
+              <button className="btn" onClick={() => addDevice('server', 500, 100)}>
+                Add Server
+              </button>
+              <button className="btn" onClick={() => addDevice('attacker', 600, 100)}>
+                Add Attacker
+              </button>
+            </div>
+          </div>
+
+          <div className="section">
+            <h2>Link Type</h2>
+            <div className="field-row">
+              <span className="hint-text">
+                Next link: <span className="hint-value">
+                  {pendingLinkType === 'backbone' ? 'Backbone' : 'Standard'}
+                </span>
+              </span>
+              <button
+                className="btn"
+                onClick={() =>
+                  setPendingLinkType(pendingLinkType === 'backbone' ? 'standard' : 'backbone')
+                }
+              >
+                Toggle Link Type
               </button>
             </div>
           </div>

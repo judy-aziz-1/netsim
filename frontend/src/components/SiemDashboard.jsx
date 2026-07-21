@@ -33,9 +33,19 @@ function SiemDashboard() {
     loadData();
   }, []);
 
+  const activeThreats = Array.isArray(alerts)
+    ? alerts.filter((alert) => alert.status === 'open').length
+    : 0;
+
   return (
     <div>
       <div className="field-row">
+        <div className="stat-panel">
+          <span className={`stat-value ${activeThreats === 0 ? 'is-clear' : ''}`}>
+            {activeThreats}
+          </span>
+          <span className="stat-label">Active Threats</span>
+        </div>
         <button className="btn" onClick={loadData}>Refresh</button>
       </div>
 
