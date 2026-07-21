@@ -1,5 +1,11 @@
-import { Circle, Group, Line, RegularPolygon, Rect, Text } from 'react-konva';
+import { useEffect, useRef, useState } from 'react';
+import { Circle, Group, Image, Line, Rect, Text } from 'react-konva';
 import { useTopologyStore } from '../store/topologyStore';
+import routerIconSrc from '../assets/icons/router.svg';
+import switchIconSrc from '../assets/icons/switch.svg';
+import pcIconSrc from '../assets/icons/pc.svg';
+import firewallIconSrc from '../assets/icons/firewall.svg';
+import firewallUnderAttackIconSrc from '../assets/icons/firewall_under_attack.svg';
 
 const COLORS_BY_TYPE = {
   router: 'steelblue',
@@ -10,8 +16,23 @@ const COLORS_BY_TYPE = {
   attacker: '#e74c3c',
 };
 
+const ICON_TYPES = ['router', 'switch', 'pc', 'firewall'];
+const ICON_SIZE = 40;
 const CONNECTING_COLOR = 'gold';
 const DELETE_BUTTON_OFFSET = 22;
+const UNDER_ATTACK_DURATION_MS = 2500;
+
+function useSvgImage(src) {
+  const [image, setImage] = useState(null);
+
+  useEffect(() => {
+    const img = new window.Image();
+    img.onload = () => setImage(img);
+    img.src = src;
+  }, [src]);
+
+  return image;
+}
 
 function DeviceNode({ device }) {
   const updateDevicePosition = useTopologyStore((state) => state.updateDevicePosition);
@@ -20,6 +41,36 @@ function DeviceNode({ device }) {
   const connectingFromDeviceId = useTopologyStore((state) => state.connectingFromDeviceId);
   const setConnectingFromDeviceId = useTopologyStore((state) => state.setConnectingFromDeviceId);
   const pendingLinkType = useTopologyStore((state) => state.pendingLinkType);
+  const arpAttackLog = useTopologyStore((state) => state.arpAttackLog);
+
+  const routerIcon = useSvgImage(routerIconSrc);
+  const switchIcon = useSvgImage(switchIconSrc);
+  const pcIcon = useSvgImage(pcIconSrc);
+  const firewallIcon = useSvgImage(firewallIconSrc);
+  const firewallUnderAttackIcon = useSvgImage(firewallUnderAttackIconSrc);
+
+  const [isUnderAttack, setIsUnderAttack] = useState(false);
+  const attackTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (device.type !== 'firewall') {
+      return;
+    }
+
+    const lastEntry = arpAttackLog[arpAttackLog.length - 1];
+
+    if (!lastEntry || lastEntry.victimDeviceId !== device.id) {
+      return;
+    }
+
+    setIsUnderAttack(true);
+    clearTimeout(attackTimeoutRef.current);
+    attackTimeoutRef.current = setTimeout(() => {
+      setIsUnderAttack(false);
+    }, UNDER_ATTACK_DURATION_MS);
+  }, [arpAttackLog, device.id, device.type]);
+
+  useEffect(() => () => clearTimeout(attackTimeoutRef.current), []);
 
   const isConnecting = connectingFromDeviceId === device.id;
   const fill = isConnecting ? CONNECTING_COLOR : COLORS_BY_TYPE[device.type] ?? 'gray';
@@ -56,29 +107,35 @@ function DeviceNode({ device }) {
   };
 
   let shape;
-  if (device.type === 'pc') {
-    shape = (
-      <Rect width={40} height={40} offsetX={20} offsetY={20} fill={fill} onClick={handleClick} />
-    );
-  } else if (device.type === 'switch') {
+  if (ICON_TYPES.includes(device.type)) {
+    const iconImage =
+      device.type === 'firewall'
+        ? isUnderAttack
+          ? firewallUnderAttackIcon
+          : firewallIcon
+        : { router: routerIcon, switch: switchIcon, pc: pcIcon }[device.type];
+
     shape = (
       <Group onClick={handleClick}>
-        <Rect width={50} height={30} offsetX={25} offsetY={15} fill={fill} />
-        <Line points={[-15, 8, -15, 15]} stroke="white" strokeWidth={2} />
-        <Line points={[-5, 8, -5, 15]} stroke="white" strokeWidth={2} />
-        <Line points={[5, 8, 5, 15]} stroke="white" strokeWidth={2} />
-        <Line points={[15, 8, 15, 15]} stroke="white" strokeWidth={2} />
+        <Rect
+          width={ICON_SIZE}
+          height={ICON_SIZE}
+          offsetX={ICON_SIZE / 2}
+          offsetY={ICON_SIZE / 2}
+          fill="transparent"
+        />
+        {isConnecting && <Circle radius={22} stroke={CONNECTING_COLOR} strokeWidth={3} />}
+        {iconImage && (
+          <Image
+            image={iconImage}
+            width={ICON_SIZE}
+            height={ICON_SIZE}
+            offsetX={ICON_SIZE / 2}
+            offsetY={ICON_SIZE / 2}
+            listening={false}
+          />
+        )}
       </Group>
-    );
-  } else if (device.type === 'firewall') {
-    shape = (
-      <RegularPolygon
-        sides={4}
-        radius={24}
-        rotation={45}
-        fill={fill}
-        onClick={handleClick}
-      />
     );
   } else if (device.type === 'server') {
     shape = (
