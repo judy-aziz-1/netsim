@@ -376,6 +376,45 @@ select option {
   line-height: 0;
 }
 
+/* ---------- Network Editor layout ---------- */
+
+.editor-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.editor-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-toggle-btn {
+  flex-shrink: 0;
+}
+
+.device-sidebar {
+  flex-shrink: 0;
+  width: 200px;
+}
+
+.device-sidebar-collapsed {
+  display: none;
+}
+
+.device-sidebar-inner {
+  width: 200px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  background: var(--bg-panel);
+}
+
+.device-sidebar-buttons {
+  flex-direction: column;
+  align-items: stretch;
+}
+
 /* ---------- Ticket detail ---------- */
 
 .ticket-detail {

@@ -3,12 +3,13 @@ import TopologyCanvas from './components/TopologyCanvas';
 import SiemDashboard from './components/SiemDashboard';
 import SocDashboard from './components/SocDashboard';
 import DeviceSettingsPanel from './components/DeviceSettingsPanel';
+import DeviceSidebar from './components/DeviceSidebar';
 import { useTopologyStore } from './store/topologyStore';
 
 function App() {
   const [activeTab, setActiveTab] = useState('editor');
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
-  const addDevice = useTopologyStore((state) => state.addDevice);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const pendingLinkType = useTopologyStore((state) => state.pendingLinkType);
   const setPendingLinkType = useTopologyStore((state) => state.setPendingLinkType);
   const sendPacket = useTopologyStore((state) => state.sendPacket);
@@ -92,31 +93,17 @@ function App() {
       {activeTab === 'soc' && <SocDashboard />}
 
       {activeTab === 'editor' && (
-        <div>
-          <div className="section">
-            <h2>Devices</h2>
-            <div className="field-row">
-              <button className="btn" onClick={() => addDevice('router', 100, 100)}>
-                Add Router
-              </button>
-              <button className="btn" onClick={() => addDevice('pc', 200, 100)}>
-                Add PC
-              </button>
-              <button className="btn" onClick={() => addDevice('switch', 300, 100)}>
-                Add Switch
-              </button>
-              <button className="btn" onClick={() => addDevice('firewall', 400, 100)}>
-                Add Firewall
-              </button>
-              <button className="btn" onClick={() => addDevice('server', 500, 100)}>
-                Add Server
-              </button>
-              <button className="btn" onClick={() => addDevice('attacker', 600, 100)}>
-                Add Attacker
-              </button>
-            </div>
-          </div>
+        <div className="editor-layout">
+          <button
+            className="btn sidebar-toggle-btn"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          >
+            {isSidebarOpen ? '☰' : '▸'}
+          </button>
 
+          <DeviceSidebar isOpen={isSidebarOpen} />
+
+          <div className="editor-main">
           <div className="section">
             <h2>Link Type</h2>
             <div className="field-row">
@@ -263,6 +250,7 @@ function App() {
 
           <div className="canvas-frame">
             <TopologyCanvas onOpenDeviceSettings={(device) => setSelectedDeviceId(device.id)} />
+          </div>
           </div>
         </div>
       )}
