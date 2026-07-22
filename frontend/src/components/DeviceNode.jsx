@@ -34,7 +34,7 @@ function useSvgImage(src) {
   return image;
 }
 
-function DeviceNode({ device }) {
+function DeviceNode({ device, onOpenSettings }) {
   const updateDevicePosition = useTopologyStore((state) => state.updateDevicePosition);
   const addLink = useTopologyStore((state) => state.addLink);
   const removeDevice = useTopologyStore((state) => state.removeDevice);
@@ -104,6 +104,10 @@ function DeviceNode({ device }) {
     }
   };
 
+  const handleDoubleClick = () => {
+    onOpenSettings?.(device);
+  };
+
   const handleDeleteClick = (event) => {
     event.cancelBubble = true;
 
@@ -164,7 +168,7 @@ function DeviceNode({ device }) {
   }
 
   return (
-    <Group x={device.x} y={device.y} draggable onDragEnd={handleDragEnd}>
+    <Group x={device.x} y={device.y} draggable onDragEnd={handleDragEnd} onDblClick={handleDoubleClick}>
       {shape}
       <Circle
         x={DELETE_BUTTON_OFFSET}

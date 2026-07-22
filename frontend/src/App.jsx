@@ -2,10 +2,12 @@ import { useState } from 'react';
 import TopologyCanvas from './components/TopologyCanvas';
 import SiemDashboard from './components/SiemDashboard';
 import SocDashboard from './components/SocDashboard';
+import DeviceSettingsPanel from './components/DeviceSettingsPanel';
 import { useTopologyStore } from './store/topologyStore';
 
 function App() {
   const [activeTab, setActiveTab] = useState('editor');
+  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
   const addDevice = useTopologyStore((state) => state.addDevice);
   const pendingLinkType = useTopologyStore((state) => state.pendingLinkType);
   const setPendingLinkType = useTopologyStore((state) => state.setPendingLinkType);
@@ -55,6 +57,8 @@ function App() {
 
     alert(`victim device ${victim?.name} now resolves ${targetDomain} to ${fakeIp}`);
   };
+
+  const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
 
   return (
     <div className="app-shell">
@@ -258,9 +262,16 @@ function App() {
           </div>
 
           <div className="canvas-frame">
-            <TopologyCanvas />
+            <TopologyCanvas onOpenDeviceSettings={(device) => setSelectedDeviceId(device.id)} />
           </div>
         </div>
+      )}
+
+      {selectedDevice && (
+        <DeviceSettingsPanel
+          device={selectedDevice}
+          onClose={() => setSelectedDeviceId(null)}
+        />
       )}
     </div>
   );

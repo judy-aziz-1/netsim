@@ -386,6 +386,19 @@ select option {
   background: var(--bg-panel);
 }
 
+.device-settings-panel {
+  position: fixed;
+  top: 100px;
+  right: 32px;
+  z-index: 20;
+  width: 260px;
+  border: 1px solid var(--border-accent);
+  border-radius: 8px;
+  padding: 16px 18px;
+  background: var(--bg-panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
 .audit-log {
   list-style: none;
   padding: 0;

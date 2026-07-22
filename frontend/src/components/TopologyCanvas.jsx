@@ -4,7 +4,7 @@ import DeviceNode from './DeviceNode';
 import LinkLine from './LinkLine';
 import Packet from './Packet';
 
-function TopologyCanvas() {
+function TopologyCanvas({ onOpenDeviceSettings }) {
   const devices = useTopologyStore((state) => state.devices);
   const links = useTopologyStore((state) => state.links);
   const activePackets = useTopologyStore((state) => state.activePackets);
@@ -16,7 +16,7 @@ function TopologyCanvas() {
           <LinkLine key={link.id} link={link} />
         ))}
         {devices.map((device) => (
-          <DeviceNode key={device.id} device={device} />
+          <DeviceNode key={device.id} device={device} onOpenSettings={onOpenDeviceSettings} />
         ))}
         {activePackets.map((packet) => (
           <Packet key={packet.id} packet={packet} />

@@ -67,6 +67,13 @@ export const useTopologyStore = create((set, get) => ({
       ),
     })),
 
+  updateDeviceProperties: (id, updates) =>
+    set((state) => ({
+      devices: state.devices.map((device) =>
+        device.id === id ? { ...device, ...updates } : device,
+      ),
+    })),
+
   removeDevice: (id) =>
     set((state) => {
       const devices = state.devices.filter((device) => device.id !== id);
