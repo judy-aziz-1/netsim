@@ -7,7 +7,7 @@ const SEVERITY_BADGE_CLASS = {
   low: 'badge-low',
 };
 
-function SiemDashboard() {
+function SiemDashboard({ onCountUpdate }) {
   const [alerts, setAlerts] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +36,10 @@ function SiemDashboard() {
   const activeThreats = Array.isArray(alerts)
     ? alerts.filter((alert) => alert.status === 'open').length
     : 0;
+
+  useEffect(() => {
+    onCountUpdate?.(activeThreats);
+  }, [activeThreats, onCountUpdate]);
 
   return (
     <div>

@@ -395,11 +395,13 @@ select option {
 
 .device-sidebar {
   flex-shrink: 0;
-  width: 200px;
+  max-width: 200px;
+  overflow: hidden;
+  transition: max-width 0.25s ease-in-out;
 }
 
 .device-sidebar-collapsed {
-  display: none;
+  max-width: 0;
 }
 
 .device-sidebar-inner {

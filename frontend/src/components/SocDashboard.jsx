@@ -12,7 +12,7 @@ const STATUS_BADGE_CLASS = {
   closed: 'badge-closed',
 };
 
-function SocDashboard() {
+function SocDashboard({ onCountUpdate }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -61,6 +61,14 @@ function SocDashboard() {
       .then(() => loadTickets())
       .catch(console.error);
   };
+
+  useEffect(() => {
+    const openTicketsCount = Array.isArray(tickets)
+      ? tickets.filter((ticket) => ticket.status !== 'closed').length
+      : 0;
+
+    onCountUpdate?.(openTicketsCount);
+  }, [tickets, onCountUpdate]);
 
   return (
     <div>
