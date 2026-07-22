@@ -42,6 +42,7 @@ function DeviceNode({ device }) {
   const setConnectingFromDeviceId = useTopologyStore((state) => state.setConnectingFromDeviceId);
   const pendingLinkType = useTopologyStore((state) => state.pendingLinkType);
   const arpAttackLog = useTopologyStore((state) => state.arpAttackLog);
+  const dnsAttackLog = useTopologyStore((state) => state.dnsAttackLog);
 
   const routerIcon = useSvgImage(routerIconSrc);
   const switchIcon = useSvgImage(switchIconSrc);
@@ -57,9 +58,14 @@ function DeviceNode({ device }) {
       return;
     }
 
-    const lastEntry = arpAttackLog[arpAttackLog.length - 1];
+    const lastArpEntry = arpAttackLog[arpAttackLog.length - 1];
+    const lastDnsEntry = dnsAttackLog[dnsAttackLog.length - 1];
 
-    if (!lastEntry || lastEntry.victimDeviceId !== device.id) {
+    const isTargeted =
+      (lastArpEntry && lastArpEntry.victimDeviceId === device.id) ||
+      (lastDnsEntry && lastDnsEntry.victimDeviceId === device.id);
+
+    if (!isTargeted) {
       return;
     }
 
@@ -68,7 +74,7 @@ function DeviceNode({ device }) {
     attackTimeoutRef.current = setTimeout(() => {
       setIsUnderAttack(false);
     }, UNDER_ATTACK_DURATION_MS);
-  }, [arpAttackLog, device.id, device.type]);
+  }, [arpAttackLog, dnsAttackLog, device.id, device.type]);
 
   useEffect(() => () => clearTimeout(attackTimeoutRef.current), []);
 

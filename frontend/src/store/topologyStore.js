@@ -34,6 +34,7 @@ export const useTopologyStore = create((set, get) => ({
   arpTables: {},
   arpAttackLog: [],
   dnsTables: {},
+  dnsAttackLog: [],
 
   addDevice: (type, x, y) => {
     deviceIdCounter += 1;
@@ -308,7 +309,14 @@ export const useTopologyStore = create((set, get) => ({
         ? state.dnsTables
         : simulateDnsPoison(state.dnsTables, attackerDeviceId, victimDeviceId, targetDomain, fakeIp);
 
-      return { dnsTables };
+      const logEntry = {
+        timestamp: Date.now(),
+        attackerDeviceId,
+        victimDeviceId,
+        blocked: isBlocked,
+      };
+
+      return { dnsTables, dnsAttackLog: [...state.dnsAttackLog, logEntry] };
     });
 
     postSecurityEvent({
