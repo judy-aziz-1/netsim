@@ -15,12 +15,14 @@ function App() {
   const pendingLinkType = useTopologyStore((state) => state.pendingLinkType);
   const setPendingLinkType = useTopologyStore((state) => state.setPendingLinkType);
   const sendPacket = useTopologyStore((state) => state.sendPacket);
+  const pingDevice = useTopologyStore((state) => state.pingDevice);
   const triggerArpSpoof = useTopologyStore((state) => state.triggerArpSpoof);
   const triggerDnsPoison = useTopologyStore((state) => state.triggerDnsPoison);
   const devices = useTopologyStore((state) => state.devices);
 
   const [sourceDeviceId, setSourceDeviceId] = useState('');
   const [targetDeviceId, setTargetDeviceId] = useState('');
+  const [pingResult, setPingResult] = useState(null);
 
   const [attackerDeviceId, setAttackerDeviceId] = useState('');
   const [victimDeviceId, setVictimDeviceId] = useState('');
@@ -59,6 +61,20 @@ function App() {
     const victim = devices.find((device) => device.id === dnsVictimDeviceId);
 
     alert(`victim device ${victim?.name} now resolves ${targetDomain} to ${fakeIp}`);
+  };
+
+  const handlePing = () => {
+    const result = pingDevice(sourceDeviceId, targetDeviceId);
+    const target = devices.find((device) => device.id === result.deviceId);
+
+    setPingResult({
+      success: result.success,
+      text: result.success
+        ? `Ping to ${target?.name}: Success`
+        : `Ping to ${target?.name}: Destination unreachable (no direct link)`,
+    });
+
+    setTimeout(() => setPingResult(null), 2000);
   };
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
@@ -157,7 +173,17 @@ function App() {
               <button className="btn" onClick={() => sendPacket(sourceDeviceId, targetDeviceId)}>
                 Send Test Packet
               </button>
+
+              <button className="btn" onClick={handlePing}>
+                Ping
+              </button>
             </div>
+
+            {pingResult && (
+              <p className={pingResult.success ? 'ping-result-success' : 'ping-result-failure'}>
+                {pingResult.text}
+              </p>
+            )}
           </div>
 
           <div className="section">

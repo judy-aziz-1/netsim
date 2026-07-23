@@ -228,3 +228,34 @@ describe('attack role guards', () => {
     expect(result.reason).toMatch(/cannot act as an attacker/);
   });
 });
+
+describe('pingDevice', () => {
+  it('succeeds and creates a moving packet when a direct link exists', () => {
+    const { addDevice, addLink, pingDevice } = useTopologyStore.getState();
+
+    addDevice('pc', 0, 0);
+    addDevice('router', 0, 0);
+
+    const [pc, router] = useTopologyStore.getState().devices;
+    addLink(pc.id, router.id);
+
+    const result = pingDevice(pc.id, router.id);
+
+    expect(result).toEqual({ success: true, deviceId: router.id });
+    expect(useTopologyStore.getState().activePackets).toHaveLength(1);
+  });
+
+  it('fails without creating a packet when there is no direct link', () => {
+    const { addDevice, pingDevice } = useTopologyStore.getState();
+
+    addDevice('pc', 0, 0);
+    addDevice('router', 0, 0);
+
+    const [pc, router] = useTopologyStore.getState().devices;
+
+    const result = pingDevice(pc.id, router.id);
+
+    expect(result).toEqual({ success: false, deviceId: router.id });
+    expect(useTopologyStore.getState().activePackets).toHaveLength(0);
+  });
+});

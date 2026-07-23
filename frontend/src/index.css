@@ -381,6 +381,18 @@ select option {
   font-weight: 600;
 }
 
+.ping-result-success {
+  color: var(--success);
+  font-weight: 600;
+  margin: 8px 0 0;
+}
+
+.ping-result-failure {
+  color: var(--danger);
+  font-weight: 600;
+  margin: 8px 0 0;
+}
+
 /* ---------- Canvas ---------- */
 
 .canvas-frame {

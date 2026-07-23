@@ -215,6 +215,23 @@ export const useTopologyStore = create((set, get) => ({
     });
   },
 
+  pingDevice: (sourceDeviceId, targetDeviceId) => {
+    const state = get();
+    const hasDirectLink = state.links.some(
+      (link) =>
+        (link.sourceDeviceId === sourceDeviceId && link.targetDeviceId === targetDeviceId) ||
+        (link.sourceDeviceId === targetDeviceId && link.targetDeviceId === sourceDeviceId),
+    );
+
+    if (!hasDirectLink) {
+      return { success: false, deviceId: targetDeviceId };
+    }
+
+    get().sendPacket(sourceDeviceId, targetDeviceId);
+
+    return { success: true, deviceId: targetDeviceId };
+  },
+
   removePacket: (id) =>
     set((state) => ({
       activePackets: state.activePackets.filter((packet) => packet.id !== id),
