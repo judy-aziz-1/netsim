@@ -11,15 +11,22 @@ class CorrelationEngine
 
     private const THRESHOLD = 3;
 
+    private const RULES = [
+        'arp_spoof' => ['ruleName' => 'repeated_arp_spoof', 'label' => 'ARP spoofing'],
+        'dns_poison' => ['ruleName' => 'repeated_dns_poison', 'label' => 'DNS poisoning'],
+    ];
+
     public static function correlate(SecurityEvent $event): void
     {
-        if ($event->eventType !== 'arp_spoof') {
+        $rule = self::RULES[$event->eventType] ?? null;
+
+        if ($rule === null) {
             return;
         }
 
         $windowStart = $event->created_at->copy()->subSeconds(self::WINDOW_SECONDS);
 
-        $matches = SecurityEvent::where('eventType', 'arp_spoof')
+        $matches = SecurityEvent::where('eventType', $event->eventType)
             ->where('victimDeviceId', $event->victimDeviceId)
             ->whereBetween('created_at', [$windowStart, $event->created_at])
             ->get();
@@ -30,7 +37,7 @@ class CorrelationEngine
 
         $matchedIds = $matches->pluck('id')->all();
 
-        $existingAlert = Alert::where('ruleName', 'repeated_arp_spoof')
+        $existingAlert = Alert::where('ruleName', $rule['ruleName'])
             ->where('victimDeviceId', $event->victimDeviceId)
             ->where('status', 'open')
             ->first();
@@ -44,7 +51,8 @@ class CorrelationEngine
             $existingAlert->relatedEventIds = $relatedEventIds;
             $existingAlert->eventCount = count($relatedEventIds);
             $existingAlert->description = sprintf(
-                'Repeated ARP spoofing detected against %s (%d events within %ds)',
+                'Repeated %s detected against %s (%d events within %ds)',
+                $rule['label'],
                 $event->victimDeviceId,
                 count($relatedEventIds),
                 self::WINDOW_SECONDS,
@@ -55,13 +63,14 @@ class CorrelationEngine
         }
 
         Alert::create([
-            'ruleName' => 'repeated_arp_spoof',
+            'ruleName' => $rule['ruleName'],
             'severity' => 'high',
             'victimDeviceId' => $event->victimDeviceId,
             'relatedEventIds' => $matchedIds,
             'eventCount' => count($matchedIds),
             'description' => sprintf(
-                'Repeated ARP spoofing detected against %s (%d events within %ds)',
+                'Repeated %s detected against %s (%d events within %ds)',
+                $rule['label'],
                 $event->victimDeviceId,
                 count($matchedIds),
                 self::WINDOW_SECONDS,
