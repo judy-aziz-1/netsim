@@ -10,6 +10,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('editor');
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [openAlertsCount, setOpenAlertsCount] = useState(0);
+  const [openTicketsCount, setOpenTicketsCount] = useState(0);
   const pendingLinkType = useTopologyStore((state) => state.pendingLinkType);
   const setPendingLinkType = useTopologyStore((state) => state.setPendingLinkType);
   const sendPacket = useTopologyStore((state) => state.sendPacket);
@@ -80,17 +82,19 @@ function App() {
           onClick={() => setActiveTab('siem')}
         >
           SIEM Dashboard
+          {openAlertsCount > 0 && <span className="tab-badge">{openAlertsCount}</span>}
         </button>
         <button
           className={`tab-button ${activeTab === 'soc' ? 'active' : ''}`}
           onClick={() => setActiveTab('soc')}
         >
           SOC Tickets
+          {openTicketsCount > 0 && <span className="tab-badge">{openTicketsCount}</span>}
         </button>
       </div>
 
-      {activeTab === 'siem' && <SiemDashboard />}
-      {activeTab === 'soc' && <SocDashboard />}
+      {activeTab === 'siem' && <SiemDashboard onCountUpdate={setOpenAlertsCount} />}
+      {activeTab === 'soc' && <SocDashboard onCountUpdate={setOpenTicketsCount} />}
 
       {activeTab === 'editor' && (
         <div className="editor-layout">

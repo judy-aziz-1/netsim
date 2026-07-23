@@ -72,6 +72,10 @@ function SocDashboard({ onCountUpdate }) {
 
   return (
     <div>
+      <div className="field-row">
+        <button className="btn" onClick={loadTickets}>Refresh</button>
+      </div>
+
       {error && <p className="error-text">{error}</p>}
 
       <div className="section">
