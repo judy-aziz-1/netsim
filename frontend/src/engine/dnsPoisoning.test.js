@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildDnsTable, isDnsTablePoisoned, simulateDnsPoison } from './dnsPoisoning';
+import {
+  buildDnsTable,
+  isDnsTablePoisoned,
+  simulateDnsPoison,
+  clearDnsPoison,
+  findActiveDnsPoisonings,
+} from './dnsPoisoning';
 
 const devices = [
   { id: 'dev-a', name: 'alice', ip: '10.0.0.1' },
@@ -38,6 +44,55 @@ describe('simulateDnsPoison', () => {
     const result = simulateDnsPoison(dnsTables, 'dev-a', 'missing', 'bob.local', '6.6.6.6');
 
     expect(result).toBe(dnsTables);
+  });
+});
+
+describe('clearDnsPoison', () => {
+  it('removes only the targeted domain entry, leaving other domains/devices untouched', () => {
+    const dnsTables = buildDnsTable(devices);
+    const poisoned = simulateDnsPoison(dnsTables, 'dev-a', 'dev-b', 'evil.com', '6.6.6.6');
+
+    const restored = clearDnsPoison(poisoned, 'dev-b', 'evil.com');
+
+    expect(restored['dev-b']['evil.com']).toBeUndefined();
+    expect(restored['dev-b']['bob.local']).toBe(poisoned['dev-b']['bob.local']);
+    expect(restored['dev-a']).toEqual(poisoned['dev-a']);
+  });
+
+  it('does not mutate the original dns tables', () => {
+    const dnsTables = buildDnsTable(devices);
+    const poisoned = simulateDnsPoison(dnsTables, 'dev-a', 'dev-b', 'evil.com', '6.6.6.6');
+    const snapshot = JSON.parse(JSON.stringify(poisoned));
+
+    clearDnsPoison(poisoned, 'dev-b', 'evil.com');
+
+    expect(poisoned).toEqual(snapshot);
+  });
+
+  it('returns the original tables unchanged for an unknown victim', () => {
+    const dnsTables = buildDnsTable(devices);
+    const result = clearDnsPoison(dnsTables, 'missing', 'evil.com');
+
+    expect(result).toBe(dnsTables);
+  });
+});
+
+describe('findActiveDnsPoisonings', () => {
+  it('returns an empty array when nothing is poisoned', () => {
+    const dnsTables = buildDnsTable(devices);
+
+    expect(findActiveDnsPoisonings(devices, dnsTables)).toEqual([]);
+  });
+
+  it('returns one entry with the attacker resolved from the fake ip', () => {
+    const dnsTables = buildDnsTable(devices);
+    const poisoned = simulateDnsPoison(dnsTables, 'dev-a', 'dev-b', 'evil.com', '10.0.0.1');
+
+    const result = findActiveDnsPoisonings(devices, poisoned);
+
+    expect(result).toEqual([
+      { victimDeviceId: 'dev-b', targetDomain: 'evil.com', fakeIp: '10.0.0.1', attackerDeviceId: 'dev-a' },
+    ]);
   });
 });
 

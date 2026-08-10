@@ -1,32 +1,42 @@
 import { useTopologyStore } from '../store/topologyStore';
 
-function DeviceSidebar({ isOpen }) {
+const DEVICE_DEFS = [
+  { type: 'router', label: 'Router', glyph: 'R', iconClass: 'ns-device-icon-router', x: 100, y: 100 },
+  { type: 'pc', label: 'PC', glyph: 'PC', x: 200, y: 100 },
+  { type: 'switch', label: 'Switch', glyph: 'SW', x: 300, y: 100 },
+  { type: 'firewall', label: 'Firewall', glyph: 'FW', x: 400, y: 100 },
+  { type: 'server', label: 'Server', glyph: 'SV', x: 500, y: 100 },
+  { type: 'attacker', label: 'Attacker', glyph: '!', iconClass: 'ns-device-icon-attacker', x: 600, y: 100 },
+];
+
+function DeviceSidebar() {
   const addDevice = useTopologyStore((state) => state.addDevice);
+  const clearTopology = useTopologyStore((state) => state.clearTopology);
+
+  const handleClear = () => {
+    if (window.confirm('Clear entire topology? This cannot be undone.')) {
+      clearTopology();
+    }
+  };
 
   return (
-    <div className={`device-sidebar${isOpen ? '' : ' device-sidebar-collapsed'}`}>
-      <div className="device-sidebar-inner">
-        <h2>Devices</h2>
-        <div className="field-row device-sidebar-buttons">
-          <button className="btn" onClick={() => addDevice('router', 100, 100)}>
-            Add Router
+    <div className="ns-sidebar">
+      <div className="ns-devices-section">
+        <div className="ns-section-label">Devices</div>
+        {DEVICE_DEFS.map((device) => (
+          <button
+            key={device.type}
+            type="button"
+            className="ns-device-row"
+            onClick={() => addDevice(device.type, device.x, device.y)}
+          >
+            <span className={`ns-device-icon ${device.iconClass ?? ''}`}>{device.glyph}</span>
+            <span>{device.label}</span>
           </button>
-          <button className="btn" onClick={() => addDevice('pc', 200, 100)}>
-            Add PC
-          </button>
-          <button className="btn" onClick={() => addDevice('switch', 300, 100)}>
-            Add Switch
-          </button>
-          <button className="btn" onClick={() => addDevice('firewall', 400, 100)}>
-            Add Firewall
-          </button>
-          <button className="btn" onClick={() => addDevice('server', 500, 100)}>
-            Add Server
-          </button>
-          <button className="btn" onClick={() => addDevice('attacker', 600, 100)}>
-            Add Attacker
-          </button>
-        </div>
+        ))}
+        <button type="button" className="ns-clear-btn" onClick={handleClear}>
+          Clear
+        </button>
       </div>
     </div>
   );

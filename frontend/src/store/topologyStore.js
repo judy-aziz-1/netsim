@@ -1,16 +1,33 @@
 import { create } from 'zustand';
 import { createPacket } from '../engine/packetMovement';
-import { buildArpTable, simulateArpSpoof } from '../engine/arpSpoofing';
-import { buildDnsTable, simulateDnsPoison } from '../engine/dnsPoisoning';
+import { buildArpTable, simulateArpSpoof, clearArpPoison } from '../engine/arpSpoofing';
+import { buildDnsTable, simulateDnsPoison, clearDnsPoison } from '../engine/dnsPoisoning';
 import { postSecurityEvent } from '../api/client';
 import { getMaxConnections, isImmuneToAttack } from '../engine/deviceCapabilities';
-import { canBeAttacker, canBeVictim } from '../engine/attackRoles';
-import { isValidConnectionType } from '../engine/connectionCapabilities';
+import { canBeAttacker, canBeVictim, canBeImpersonated } from '../engine/attackRoles';
+import { isValidConnectionType, getDefaultSpeed } from '../engine/connectionCapabilities';
+import {
+  buildPingRoute,
+  buildRoundTripPath,
+  calculatePingLatencyMs,
+  describeLinkTypes,
+  describeLinkDetail,
+  getImmediateNeighborId,
+  isAttackerOnSameSegment,
+  findPath,
+} from '../engine/pingRouting';
 
 let deviceIdCounter = 0;
 
-function randomIp() {
-  return `192.168.1.${Math.floor(Math.random() * 254) + 1}`;
+function randomUniqueIp(existingIps) {
+  const usedIps = new Set(existingIps);
+  let candidate;
+
+  do {
+    candidate = `192.168.1.${Math.floor(Math.random() * 253) + 2}`;
+  } while (usedIps.has(candidate));
+
+  return candidate;
 }
 
 function randomMac() {
@@ -27,6 +44,7 @@ let linkIdCounter = 0;
 
 export const useTopologyStore = create((set, get) => ({
   devices: [],
+  deviceCounts: {},
   links: [],
   connectingFromDeviceId: null,
   pendingLinkType: 'standard',
@@ -35,25 +53,39 @@ export const useTopologyStore = create((set, get) => ({
   arpAttackLog: [],
   dnsTables: {},
   dnsAttackLog: [],
+  toasts: [],
+
+  pushToast: (message, type = 'success') =>
+    set((state) => ({
+      toasts: [...state.toasts, { id: `toast-${Date.now()}-${Math.random()}`, message, type }],
+    })),
+
+  dismissToast: (id) =>
+    set((state) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) })),
 
   addDevice: (type, x, y) => {
     deviceIdCounter += 1;
 
-    const device = {
-      id: `device-${deviceIdCounter}`,
-      type,
-      x,
-      y,
-      name: `${type}-${deviceIdCounter}`,
-      ip: randomIp(),
-      mac: randomMac(),
-    };
-
     set((state) => {
+      const typeCount = (state.deviceCounts[type] ?? 0) + 1;
+
+      const device = {
+        id: `device-${deviceIdCounter}`,
+        type,
+        x,
+        y,
+        name: `${type}-${typeCount}`,
+        mac: randomMac(),
+        ...(type !== 'switch'
+          ? { ip: randomUniqueIp(state.devices.map((existing) => existing.ip)) }
+          : {}),
+      };
+
       const devices = [...state.devices, device];
 
       return {
         devices,
+        deviceCounts: { ...state.deviceCounts, [type]: typeCount },
         arpTables: buildArpTable(devices, state.links),
         dnsTables: buildDnsTable(devices),
       };
@@ -161,6 +193,8 @@ export const useTopologyStore = create((set, get) => ({
         sourceDeviceId: sourceId,
         targetDeviceId: targetId,
         type,
+        enabled: true,
+        speed: getDefaultSpeed(type),
       };
 
       const links = [...state.links, link];
@@ -182,6 +216,28 @@ export const useTopologyStore = create((set, get) => ({
       return { links, arpTables: buildArpTable(state.devices, links) };
     }),
 
+  setLinkEnabled: (id, enabled) =>
+    set((state) => ({
+      links: state.links.map((link) => (link.id === id ? { ...link, enabled } : link)),
+    })),
+
+  setLinkSpeed: (id, speed) =>
+    set((state) => ({
+      links: state.links.map((link) => (link.id === id ? { ...link, speed } : link)),
+    })),
+
+  clearTopology: () =>
+    set({
+      devices: [],
+      links: [],
+      connectingFromDeviceId: null,
+      activePackets: [],
+      arpTables: {},
+      arpAttackLog: [],
+      dnsTables: {},
+      dnsAttackLog: [],
+    }),
+
   setConnectingFromDeviceId: (id) => set({ connectingFromDeviceId: id }),
 
   setPendingLinkType: (type) => set({ pendingLinkType: type }),
@@ -200,8 +256,9 @@ export const useTopologyStore = create((set, get) => ({
     set((state) => {
       const hasDirectLink = state.links.some(
         (link) =>
-          (link.sourceDeviceId === sourceDeviceId && link.targetDeviceId === targetDeviceId) ||
-          (link.sourceDeviceId === targetDeviceId && link.targetDeviceId === sourceDeviceId),
+          link.enabled !== false &&
+          ((link.sourceDeviceId === sourceDeviceId && link.targetDeviceId === targetDeviceId) ||
+            (link.sourceDeviceId === targetDeviceId && link.targetDeviceId === sourceDeviceId)),
       );
 
       if (!hasDirectLink) {
@@ -217,19 +274,47 @@ export const useTopologyStore = create((set, get) => ({
 
   pingDevice: (sourceDeviceId, targetDeviceId) => {
     const state = get();
-    const hasDirectLink = state.links.some(
-      (link) =>
-        (link.sourceDeviceId === sourceDeviceId && link.targetDeviceId === targetDeviceId) ||
-        (link.sourceDeviceId === targetDeviceId && link.targetDeviceId === sourceDeviceId),
+    const enabledLinks = state.links.filter((link) => link.enabled !== false);
+    const route = buildPingRoute(
+      sourceDeviceId,
+      targetDeviceId,
+      state.devices,
+      enabledLinks,
+      state.arpTables,
+      state.dnsTables,
     );
 
-    if (!hasDirectLink) {
-      return { success: false, deviceId: targetDeviceId };
+    if (!route.success) {
+      return {
+        success: false,
+        deviceId: targetDeviceId,
+        reason: route.reason,
+        message: route.message,
+      };
     }
 
-    get().sendPacket(sourceDeviceId, targetDeviceId);
+    const fullPath = buildRoundTripPath(route.path);
+    const latencyMs =
+      calculatePingLatencyMs(route.path, state.links) +
+      calculatePingLatencyMs([...route.path].reverse(), state.links);
+    const linkTypeSummary = describeLinkTypes(route.path, state.links);
+    const linkDetail = describeLinkDetail(route.path, state.links);
 
-    return { success: true, deviceId: targetDeviceId };
+    const packet = createPacket(sourceDeviceId, targetDeviceId, fullPath);
+
+    set((s) => ({ activePackets: [...s.activePackets, packet] }));
+
+    return {
+      success: true,
+      deviceId: targetDeviceId,
+      path: route.path,
+      hops: route.hops,
+      latencyMs,
+      mitm: route.mitm,
+      linkTypeSummary,
+      linkDetail,
+      packetId: packet.id,
+    };
   },
 
   removePacket: (id) =>
@@ -244,7 +329,7 @@ export const useTopologyStore = create((set, get) => ({
       ),
     })),
 
-  triggerArpSpoof: (attackerDeviceId, victimDeviceId, impersonatedDeviceId) => {
+  triggerArpSpoof: (attackerDeviceId, victimDeviceId, impersonatedDeviceId, bidirectional = false) => {
     const devices = get().devices;
     const devicesExist = [attackerDeviceId, victimDeviceId, impersonatedDeviceId].every((id) =>
       devices.some((device) => device.id === id),
@@ -256,8 +341,19 @@ export const useTopologyStore = create((set, get) => ({
       return { success: false, reason };
     }
 
+    if (
+      attackerDeviceId === victimDeviceId ||
+      attackerDeviceId === impersonatedDeviceId ||
+      victimDeviceId === impersonatedDeviceId
+    ) {
+      const reason = 'Cannot trigger ARP spoof: attacker, victim, and impersonated device must all be different';
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
     const attacker = devices.find((device) => device.id === attackerDeviceId);
     const victim = devices.find((device) => device.id === victimDeviceId);
+    const impersonated = devices.find((device) => device.id === impersonatedDeviceId);
 
     if (!canBeAttacker(attacker.type)) {
       const reason = `Cannot trigger ARP spoof: ${attacker.name} (${attacker.type}) cannot act as an attacker`;
@@ -271,30 +367,100 @@ export const useTopologyStore = create((set, get) => ({
       return { success: false, reason };
     }
 
-    const isBlocked = isImmuneToAttack(victim.type, 'arp_spoof');
+    if (!canBeImpersonated(impersonated.type)) {
+      const reason = `Cannot trigger ARP spoof: ${impersonated.name} (${impersonated.type}) cannot be impersonated`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    const victimNeighborId = getImmediateNeighborId(victimDeviceId, get().links);
+
+    if (!isAttackerOnSameSegment(attackerDeviceId, victimNeighborId, get().links)) {
+      const reason = `Cannot trigger ARP spoof: ${attacker.name} is not on the same local network segment as ${victim.name}`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    if (bidirectional) {
+      const impersonatedNeighborId = getImmediateNeighborId(impersonatedDeviceId, get().links);
+
+      if (!isAttackerOnSameSegment(attackerDeviceId, impersonatedNeighborId, get().links)) {
+        const reason = `Cannot trigger bidirectional ARP spoof: ${attacker.name} is not on the same local network segment as ${impersonated.name}`;
+        console.warn(reason);
+        return { success: false, reason };
+      }
+    }
+
+    const isBlockedForward = isImmuneToAttack(victim.type, 'arp_spoof');
+    const isBlockedReverse = bidirectional && isImmuneToAttack(impersonated.type, 'arp_spoof');
 
     set((state) => {
-      const arpTables = isBlocked
+      let arpTables = isBlockedForward
         ? state.arpTables
         : simulateArpSpoof(state.arpTables, attackerDeviceId, victimDeviceId, impersonatedDeviceId);
 
-      const logEntry = {
-        timestamp: Date.now(),
-        attackerDeviceId,
-        victimDeviceId,
-        impersonatedDeviceId,
-        blocked: isBlocked,
-      };
+      const logEntries = [
+        {
+          timestamp: Date.now(),
+          attackerDeviceId,
+          victimDeviceId,
+          impersonatedDeviceId,
+          blocked: isBlockedForward,
+        },
+      ];
 
-      return { arpTables, arpAttackLog: [...state.arpAttackLog, logEntry] };
+      if (bidirectional) {
+        arpTables = isBlockedReverse
+          ? arpTables
+          : simulateArpSpoof(arpTables, attackerDeviceId, impersonatedDeviceId, victimDeviceId);
+
+        logEntries.push({
+          timestamp: Date.now(),
+          attackerDeviceId,
+          victimDeviceId: impersonatedDeviceId,
+          impersonatedDeviceId: victimDeviceId,
+          blocked: isBlockedReverse,
+        });
+      }
+
+      return { arpTables, arpAttackLog: [...state.arpAttackLog, ...logEntries] };
     });
 
     postSecurityEvent({
-      eventType: isBlocked ? 'firewall_blocked_arp_spoof' : 'arp_spoof',
+      eventType: isBlockedForward ? 'firewall_blocked_arp_spoof' : 'arp_spoof',
       attackerDeviceId,
       victimDeviceId,
       impersonatedDeviceId,
     }).catch((error) => console.error('Failed to send security event', error));
+
+    if (bidirectional) {
+      postSecurityEvent({
+        eventType: isBlockedReverse ? 'firewall_blocked_arp_spoof' : 'arp_spoof',
+        attackerDeviceId,
+        victimDeviceId: impersonatedDeviceId,
+        impersonatedDeviceId: victimDeviceId,
+      }).catch((error) => console.error('Failed to send security event', error));
+    }
+
+    return { success: true };
+  },
+
+  stopArpSpoof: (victimDeviceId, impersonatedDeviceId) => {
+    const devices = get().devices;
+    const victim = devices.find((device) => device.id === victimDeviceId);
+    const impersonated = devices.find((device) => device.id === impersonatedDeviceId);
+
+    if (!victim || !impersonated) {
+      const reason = 'Cannot stop ARP spoof: one or more devices not found';
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    set((state) => {
+      let arpTables = clearArpPoison(state.arpTables, victimDeviceId, impersonatedDeviceId);
+      arpTables = clearArpPoison(arpTables, impersonatedDeviceId, victimDeviceId);
+      return { arpTables };
+    });
 
     return { success: true };
   },
@@ -311,6 +477,12 @@ export const useTopologyStore = create((set, get) => ({
       return { success: false, reason };
     }
 
+    if (attackerDeviceId === victimDeviceId) {
+      const reason = 'Cannot trigger DNS poison: attacker and victim device must be different';
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
     const attacker = devices.find((device) => device.id === attackerDeviceId);
     const victim = devices.find((device) => device.id === victimDeviceId);
 
@@ -322,6 +494,20 @@ export const useTopologyStore = create((set, get) => ({
 
     if (!canBeVictim(victim.type)) {
       const reason = `Cannot trigger DNS poison: ${victim.name} (${victim.type}) cannot be targeted as a victim`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    const impersonatedDevice = devices.find((device) => device.ip === fakeIp);
+
+    if (!impersonatedDevice) {
+      const reason = `Cannot trigger DNS poison: ${fakeIp} does not match any device's real IP address in the topology`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    if (!findPath(devices, get().links, victimDeviceId, impersonatedDevice.id)) {
+      const reason = `Cannot trigger DNS poison: ${victim.name} has no network path to the device at ${fakeIp}`;
       console.warn(reason);
       return { success: false, reason };
     }
@@ -349,6 +535,23 @@ export const useTopologyStore = create((set, get) => ({
       victimDeviceId,
       details: { targetDomain, fakeIp },
     }).catch((error) => console.error('Failed to send security event', error));
+
+    return { success: true };
+  },
+
+  stopDnsPoison: (victimDeviceId, targetDomain) => {
+    const devices = get().devices;
+    const victim = devices.find((device) => device.id === victimDeviceId);
+
+    if (!victim) {
+      const reason = 'Cannot stop DNS poison: device not found';
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    set((state) => ({
+      dnsTables: clearDnsPoison(state.dnsTables, victimDeviceId, targetDomain),
+    }));
 
     return { success: true };
   },

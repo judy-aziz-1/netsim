@@ -21,6 +21,11 @@ const ICON_SIZE = 40;
 const CONNECTING_COLOR = 'gold';
 const DELETE_BUTTON_OFFSET = 22;
 const UNDER_ATTACK_DURATION_MS = 2500;
+const DOUBLE_CLICK_THRESHOLD_MS = 300;
+const LABEL_OFFSET_Y_BY_TYPE = {
+  server: 34,
+};
+const DEFAULT_LABEL_OFFSET_Y = 28;
 
 function useSvgImage(src) {
   const [image, setImage] = useState(null);
@@ -34,10 +39,11 @@ function useSvgImage(src) {
   return image;
 }
 
-function DeviceNode({ device, onOpenSettings }) {
+function DeviceNode({ device, onOpenSettings, onHoverChange, onSelect, isSelected, isPoisoned, pulseOpacity }) {
   const updateDevicePosition = useTopologyStore((state) => state.updateDevicePosition);
   const addLink = useTopologyStore((state) => state.addLink);
   const removeDevice = useTopologyStore((state) => state.removeDevice);
+  const pushToast = useTopologyStore((state) => state.pushToast);
   const connectingFromDeviceId = useTopologyStore((state) => state.connectingFromDeviceId);
   const setConnectingFromDeviceId = useTopologyStore((state) => state.setConnectingFromDeviceId);
   const pendingLinkType = useTopologyStore((state) => state.pendingLinkType);
@@ -52,6 +58,7 @@ function DeviceNode({ device, onOpenSettings }) {
 
   const [isUnderAttack, setIsUnderAttack] = useState(false);
   const attackTimeoutRef = useRef(null);
+  const pendingClickTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (device.type !== 'firewall') {
@@ -76,7 +83,13 @@ function DeviceNode({ device, onOpenSettings }) {
     }, UNDER_ATTACK_DURATION_MS);
   }, [arpAttackLog, dnsAttackLog, device.id, device.type]);
 
-  useEffect(() => () => clearTimeout(attackTimeoutRef.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(attackTimeoutRef.current);
+      clearTimeout(pendingClickTimeoutRef.current);
+    },
+    [],
+  );
 
   const isConnecting = connectingFromDeviceId === device.id;
   const fill = isConnecting ? CONNECTING_COLOR : COLORS_BY_TYPE[device.type] ?? 'gray';
@@ -85,27 +98,46 @@ function DeviceNode({ device, onOpenSettings }) {
     updateDevicePosition(device.id, event.target.x(), event.target.y());
   };
 
-  const handleClick = () => {
+  const performConnectClick = () => {
     if (!connectingFromDeviceId) {
       setConnectingFromDeviceId(device.id);
+      onSelect?.(device);
       return;
     }
 
     if (connectingFromDeviceId === device.id) {
       setConnectingFromDeviceId(null);
+      onSelect?.(device);
       return;
     }
 
     const result = addLink(connectingFromDeviceId, device.id, pendingLinkType);
     setConnectingFromDeviceId(null);
+    onSelect?.(device);
 
     if (!result?.success) {
-      alert(result?.reason ?? 'Cannot add link');
+      pushToast(result?.reason ?? 'Cannot add link', 'error');
     }
   };
 
-  const handleDoubleClick = () => {
-    onOpenSettings?.(device);
+  // Manual double-click detection (instead of Konva's native onDblClick):
+  // the connecting-mode ring below mounts/unmounts a Konva node between the
+  // two clicks of a native dblclick gesture on icon-type devices, which was
+  // unreliably breaking Konva/browser double-click recognition for those
+  // types only. Debouncing here works identically and uniformly for all
+  // device types regardless of what their shape renders.
+  const handleShapeClick = () => {
+    if (pendingClickTimeoutRef.current) {
+      clearTimeout(pendingClickTimeoutRef.current);
+      pendingClickTimeoutRef.current = null;
+      onOpenSettings?.(device);
+      return;
+    }
+
+    pendingClickTimeoutRef.current = setTimeout(() => {
+      pendingClickTimeoutRef.current = null;
+      performConnectClick();
+    }, DOUBLE_CLICK_THRESHOLD_MS);
   };
 
   const handleDeleteClick = (event) => {
@@ -114,6 +146,14 @@ function DeviceNode({ device, onOpenSettings }) {
     if (window.confirm(`Delete device ${device.name}?`)) {
       removeDevice(device.id);
     }
+  };
+
+  const handleMouseEnter = () => {
+    onHoverChange?.(device, true);
+  };
+
+  const handleMouseLeave = () => {
+    onHoverChange?.(device, false);
   };
 
   let shape;
@@ -126,7 +166,7 @@ function DeviceNode({ device, onOpenSettings }) {
         : { router: routerIcon, switch: switchIcon, pc: pcIcon }[device.type];
 
     shape = (
-      <Group onClick={handleClick}>
+      <Group onClick={handleShapeClick}>
         <Rect
           width={ICON_SIZE}
           height={ICON_SIZE}
@@ -149,7 +189,7 @@ function DeviceNode({ device, onOpenSettings }) {
     );
   } else if (device.type === 'server') {
     shape = (
-      <Group onClick={handleClick}>
+      <Group onClick={handleShapeClick}>
         <Rect width={36} height={48} offsetX={18} offsetY={24} fill={fill} />
         <Line points={[-14, -12, 14, -12]} stroke="white" strokeWidth={2} />
         <Line points={[-14, 0, 14, 0]} stroke="white" strokeWidth={2} />
@@ -158,18 +198,31 @@ function DeviceNode({ device, onOpenSettings }) {
     );
   } else if (device.type === 'attacker') {
     shape = (
-      <Group onClick={handleClick}>
+      <Group onClick={handleShapeClick}>
         <Line points={[-15, 20, 15, 20, 0, -6]} closed fill={fill} />
         <Circle y={-14} radius={9} fill={fill} />
       </Group>
     );
   } else {
-    shape = <Circle radius={20} fill={fill} onClick={handleClick} />;
+    shape = <Circle radius={20} fill={fill} onClick={handleShapeClick} />;
   }
 
+  const labelOffsetY = LABEL_OFFSET_Y_BY_TYPE[device.type] ?? DEFAULT_LABEL_OFFSET_Y;
+
   return (
-    <Group x={device.x} y={device.y} draggable onDragEnd={handleDragEnd} onDblClick={handleDoubleClick}>
+    <Group
+      x={device.x}
+      y={device.y}
+      draggable
+      onDragEnd={handleDragEnd}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       {shape}
+      {isSelected && <Circle radius={26} stroke="#4d9fff" strokeWidth={2} listening={false} />}
+      {isPoisoned && (
+        <Circle radius={30} stroke="#e74c3c" strokeWidth={3} opacity={pulseOpacity} listening={false} />
+      )}
       <Circle
         x={DELETE_BUTTON_OFFSET}
         y={-DELETE_BUTTON_OFFSET}
@@ -185,6 +238,16 @@ function DeviceNode({ device, onOpenSettings }) {
         fill="white"
         offsetX={4}
         offsetY={7}
+        listening={false}
+      />
+      <Text
+        y={labelOffsetY}
+        text={device.name}
+        fontSize={11}
+        fill="#3a4257"
+        align="center"
+        width={80}
+        offsetX={40}
         listening={false}
       />
     </Group>

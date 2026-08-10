@@ -2,6 +2,7 @@ FROM php:8.4-cli
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git unzip zip libzip-dev libssl-dev pkg-config autoconf build-essential \
+    && pecl channel-update pecl.php.net \
     && pecl install mongodb \
     && docker-php-ext-enable mongodb \
     && docker-php-ext-install zip \

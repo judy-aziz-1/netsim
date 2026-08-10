@@ -10,14 +10,6 @@ function Packet({ packet }) {
   const devices = useTopologyStore((state) => state.devices);
   const updatePacketState = useTopologyStore((state) => state.updatePacketState);
   const removePacket = useTopologyStore((state) => state.removePacket);
-  const links = useTopologyStore((state) => state.links);
-
-  const link = links.find(
-    (candidate) =>
-      (candidate.sourceDeviceId === packet.sourceNodeId && candidate.targetDeviceId === packet.targetNodeId) ||
-      (candidate.sourceDeviceId === packet.targetNodeId && candidate.targetDeviceId === packet.sourceNodeId),
-  );
-  const speed = PACKET_SPEED * getSpeedMultiplier(link?.type ?? 'standard');
 
   const packetRef = useRef(packet);
   const lastTimeRef = useRef(null);
@@ -44,6 +36,18 @@ function Packet({ packet }) {
       lastTimeRef.current = time;
 
       const currentPacket = packetRef.current;
+
+      const segmentSourceId = currentPacket.path[currentPacket.currentSegmentIndex];
+      const segmentTargetId = currentPacket.path[currentPacket.currentSegmentIndex + 1];
+      const segmentLink = useTopologyStore
+        .getState()
+        .links.find(
+          (candidate) =>
+            (candidate.sourceDeviceId === segmentSourceId && candidate.targetDeviceId === segmentTargetId) ||
+            (candidate.sourceDeviceId === segmentTargetId && candidate.targetDeviceId === segmentSourceId),
+        );
+      const speed = PACKET_SPEED * getSpeedMultiplier(segmentLink?.type ?? 'standard');
+
       const advanced = advancePacket(currentPacket, deltaTime, speed);
 
       const currentNodePositions = {};

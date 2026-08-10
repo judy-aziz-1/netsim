@@ -3,5 +3,9 @@ export function canBeAttacker(deviceType) {
 }
 
 export function canBeVictim(deviceType) {
-  return deviceType !== 'attacker';
+  return deviceType !== 'attacker' && deviceType !== 'switch';
+}
+
+export function canBeImpersonated(deviceType) {
+  return deviceType !== 'switch' && deviceType !== 'attacker';
 }
