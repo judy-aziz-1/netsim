@@ -221,6 +221,14 @@ export function buildPingRoute(sourceId, targetId, devices, links, arpTables, dn
     };
   }
 
+  if (deviceById.get(targetId)?.isOverwhelmed) {
+    return {
+      success: false,
+      reason: 'target_overwhelmed',
+      message: 'Ping failed - target is overwhelmed by a denial-of-service attack',
+    };
+  }
+
   const forward = buildLegRoute(sourceId, targetId, devices, links, arpTables, dnsTables);
 
   if (!forward.success) {

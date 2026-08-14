@@ -1,5 +1,9 @@
 const FORWARDING_TYPES = new Set(['switch', 'router']);
-const DOS_TARGET_TYPES = new Set(['server']);
+// 'firewall' is included so a DoS attack can be aimed at one and correctly
+// rejected via isImmuneToAttack — otherwise the only immune device type
+// (firewall) could never be a valid DoS target at all, making the blocked
+// path unreachable.
+const DOS_TARGET_TYPES = new Set(['server', 'firewall']);
 const PORT_SCAN_TARGET_TYPES = new Set(['server']);
 const IMMUNE_ATTACKER_TYPES = new Set(['firewall']);
 

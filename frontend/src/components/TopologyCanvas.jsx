@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Line } from 'react-konva';
-import { useTopologyStore } from '../store/topologyStore';
+import { useTopologyStore, DOS_OVERWHELM_THRESHOLD_TICKS } from '../store/topologyStore';
 import { formatSpeedLabel, getDefaultSpeed } from '../engine/connectionCapabilities';
 import { findActivePoisonings } from '../engine/arpSpoofing';
 import { findActiveDnsPoisonings } from '../engine/dnsPoisoning';
@@ -160,6 +160,8 @@ function TopologyCanvas({ onOpenDeviceSettings, onOpenLinkSettings }) {
               isSelected={selection?.type === 'device' && selection.id === device.id}
               isPoisoned={poisonedDeviceIds.has(device.id)}
               pulseOpacity={pulseOpacity}
+              isOverwhelmed={Boolean(device.isOverwhelmed)}
+              dosProgress={Math.min(1, (device.dosFloodTicks ?? 0) / DOS_OVERWHELM_THRESHOLD_TICKS)}
             />
           ))}
           {activePackets.map((packet) => (

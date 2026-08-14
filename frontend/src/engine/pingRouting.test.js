@@ -278,6 +278,36 @@ describe('buildPingRoute', () => {
     });
   });
 
+  it('fails with target_overwhelmed when the target device is being DoS-attacked', () => {
+    const devices = [
+      device('pc1', 'pc'),
+      { ...device('server1', 'server'), isOverwhelmed: true },
+    ];
+    const links = [link('l1', 'pc1', 'server1')];
+
+    const route = buildPingRoute('pc1', 'server1', devices, links, {}, {});
+
+    expect(route).toEqual({
+      success: false,
+      reason: 'target_overwhelmed',
+      message: 'Ping failed - target is overwhelmed by a denial-of-service attack',
+    });
+  });
+
+  it('succeeds normally once the target is no longer overwhelmed', () => {
+    const devices = [
+      device('pc1', 'pc'),
+      { ...device('server1', 'server'), isOverwhelmed: false },
+    ];
+    const links = [link('l1', 'pc1', 'server1')];
+    const arpTables = buildArpTable(devices, links);
+    const dnsTables = buildDnsTable(devices);
+
+    const route = buildPingRoute('pc1', 'server1', devices, links, arpTables, dnsTables);
+
+    expect(route.success).toBe(true);
+  });
+
   it('one-way ARP attack: reply leg goes direct, not through the attacker (regression)', () => {
     const devices = [
       device('pc1', 'pc'),

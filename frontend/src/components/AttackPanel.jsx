@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { canBeAttacker, canBeVictim, canBeImpersonated } from '../engine/attackRoles';
+import { isValidDosTarget } from '../engine/deviceCapabilities';
 
-const TOOL_TABS = [
-  { id: 'ping', label: 'Ping' },
+const PING_TAB = { id: 'ping', label: 'Ping' };
+const ATTACK_TOOL_TABS = [
   { id: 'arp', label: 'ARP Attack' },
   { id: 'dns', label: 'DNS Attack' },
+  { id: 'dos', label: 'DoS Attack' },
 ];
 
 function DeviceOptions({ devices }) {
@@ -60,6 +62,14 @@ function AttackPanel({
   dnsError,
   isDnsAttackActive,
   handleStopDnsPoison,
+  dosAttackerDeviceId,
+  setDosAttackerDeviceId,
+  dosTargetDeviceId,
+  setDosTargetDeviceId,
+  handleTriggerDosAttack,
+  dosError,
+  isDosAttackActive,
+  handleStopDosAttack,
 }) {
   const [activeToolTab, setActiveToolTab] = useState('ping');
 
@@ -95,7 +105,17 @@ function AttackPanel({
         </div>
 
         <div className="ns-tool-tabs">
-          {TOOL_TABS.map((tab) => (
+          <button
+            type="button"
+            className={`ns-tool-tab ${activeToolTab === PING_TAB.id ? 'active' : ''}`}
+            onClick={() => setActiveToolTab(PING_TAB.id)}
+          >
+            {PING_TAB.label}
+          </button>
+        </div>
+
+        <div className="ns-tool-tabs">
+          {ATTACK_TOOL_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -335,6 +355,54 @@ function AttackPanel({
               )}
             </div>
             {dnsError && <p className="error-text">{dnsError}</p>}
+          </>
+        )}
+
+        {activeToolTab === 'dos' && (
+          <>
+            <AttackField label="Attacker device">
+              <select
+                value={dosAttackerDeviceId}
+                onChange={(event) => setDosAttackerDeviceId(event.target.value)}
+              >
+                <option value="">Attacker device</option>
+                <DeviceOptions devices={devices.filter((device) => canBeAttacker(device.type))} />
+              </select>
+            </AttackField>
+
+            <AttackField label="Target device">
+              <select
+                value={dosTargetDeviceId}
+                onChange={(event) => setDosTargetDeviceId(event.target.value)}
+              >
+                <option value="">Target device</option>
+                <DeviceOptions devices={devices.filter((device) => isValidDosTarget(device.type))} />
+              </select>
+            </AttackField>
+
+            <div className="ns-attack-panel-buttons">
+              {isDosAttackActive ? (
+                <>
+                  <span className="ns-attack-status-badge">Active</span>
+                  <button
+                    type="button"
+                    className="ns-attack-btn ns-attack-btn-danger"
+                    onClick={handleStopDosAttack}
+                  >
+                    Stop DoS Attack
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="ns-attack-btn ns-attack-btn-primary"
+                  onClick={handleTriggerDosAttack}
+                >
+                  Trigger DoS Attack
+                </button>
+              )}
+            </div>
+            {dosError && <p className="error-text">{dosError}</p>}
           </>
         )}
       </div>

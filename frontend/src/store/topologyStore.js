@@ -3,7 +3,7 @@ import { createPacket } from '../engine/packetMovement';
 import { buildArpTable, simulateArpSpoof, clearArpPoison } from '../engine/arpSpoofing';
 import { buildDnsTable, simulateDnsPoison, clearDnsPoison } from '../engine/dnsPoisoning';
 import { postSecurityEvent, createNetworkTopology, deleteNetworkTopology } from '../api/client';
-import { getMaxConnections, isImmuneToAttack } from '../engine/deviceCapabilities';
+import { getMaxConnections, isImmuneToAttack, isValidDosTarget } from '../engine/deviceCapabilities';
 import { canBeAttacker, canBeVictim, canBeImpersonated } from '../engine/attackRoles';
 import { isValidConnectionType, getDefaultSpeed } from '../engine/connectionCapabilities';
 import {
@@ -40,6 +40,36 @@ function randomMac() {
 }
 
 let linkIdCounter = 0;
+
+// Interval handles for in-progress DoS floods, keyed by target device id.
+// Kept outside Zustand state since setInterval handles aren't serializable
+// store data — this mirrors how deviceIdCounter/linkIdCounter above are also
+// plain module state rather than store state.
+const DOS_FLOOD_INTERVAL_MS = 350;
+const DOS_EVENT_INTERVAL_MS = 20000;
+export const DOS_OVERWHELM_THRESHOLD_TICKS = 12;
+const activeDosFloods = {};
+
+// Runtime/attack-state fields every device must have, regardless of
+// whether it was just created (addDevice) or loaded from a save
+// (loadTopology) — a single place to add future fields to so both paths
+// stay in sync automatically, instead of loadTopology silently drifting
+// out of date with whatever addDevice defaults.
+const DEVICE_STATE_DEFAULTS = {
+  isOverwhelmed: false,
+  dosFloodTicks: 0,
+  dosFloodActive: false,
+};
+
+function stopDosFlood(targetDeviceId) {
+  const flood = activeDosFloods[targetDeviceId];
+  if (!flood) {
+    return;
+  }
+  clearInterval(flood.floodInterval);
+  clearInterval(flood.eventInterval);
+  delete activeDosFloods[targetDeviceId];
+}
 
 function numericSuffix(value, prefix) {
   if (typeof value !== 'string' || !value.startsWith(prefix)) {
@@ -84,6 +114,7 @@ export const useTopologyStore = create((set, get) => ({
         y,
         name: `${type}-${typeCount}`,
         mac: randomMac(),
+        ...DEVICE_STATE_DEFAULTS,
         ...(type !== 'switch'
           ? { ip: randomUniqueIp(state.devices.map((existing) => existing.ip)) }
           : {}),
@@ -116,6 +147,7 @@ export const useTopologyStore = create((set, get) => ({
 
   removeDevice: (id) =>
     set((state) => {
+      stopDosFlood(id);
       const devices = state.devices.filter((device) => device.id !== id);
       const links = state.links.filter(
         (link) => link.sourceDeviceId !== id && link.targetDeviceId !== id,
@@ -234,7 +266,8 @@ export const useTopologyStore = create((set, get) => ({
       links: state.links.map((link) => (link.id === id ? { ...link, speed } : link)),
     })),
 
-  clearTopology: () =>
+  clearTopology: () => {
+    Object.keys(activeDosFloods).forEach(stopDosFlood);
     set({
       devices: [],
       deviceCounts: {},
@@ -245,7 +278,8 @@ export const useTopologyStore = create((set, get) => ({
       arpAttackLog: [],
       dnsTables: {},
       dnsAttackLog: [],
-    }),
+    });
+  },
 
   setConnectingFromDeviceId: (id) => set({ connectingFromDeviceId: id }),
 
@@ -272,7 +306,14 @@ export const useTopologyStore = create((set, get) => ({
   },
 
   loadTopology: (topologyData) => {
-    const loadedDevices = topologyData?.devices ?? [];
+    // Backfill any device-state fields missing from a save made before they
+    // existed (e.g. dosFloodTicks) - addDevice always sets these, but a
+    // loaded record predating a given field would otherwise be missing it
+    // entirely, and undefined + 1 silently produces NaN on the first use.
+    const loadedDevices = (topologyData?.devices ?? []).map((device) => ({
+      ...DEVICE_STATE_DEFAULTS,
+      ...device,
+    }));
     const loadedLinks = topologyData?.links ?? [];
 
     get().clearTopology();
@@ -642,5 +683,134 @@ export const useTopologyStore = create((set, get) => ({
     }));
 
     return { success: true };
+  },
+
+  triggerDosAttack: (attackerDeviceId, targetDeviceId) => {
+    const devices = get().devices;
+    const devicesExist = [attackerDeviceId, targetDeviceId].every((id) =>
+      devices.some((device) => device.id === id),
+    );
+
+    if (!devicesExist) {
+      const reason = 'Cannot trigger DoS attack: one or more devices not found';
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    if (attackerDeviceId === targetDeviceId) {
+      const reason = 'Cannot trigger DoS attack: attacker and target device must be different';
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    const attacker = devices.find((device) => device.id === attackerDeviceId);
+    const target = devices.find((device) => device.id === targetDeviceId);
+
+    if (!canBeAttacker(attacker.type)) {
+      const reason = `Cannot trigger DoS attack: ${attacker.name} (${attacker.type}) cannot act as an attacker`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    if (!isValidDosTarget(target.type)) {
+      const reason = `Cannot trigger DoS attack: ${target.name} (${target.type}) is not a valid DoS target`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    const isBlocked = isImmuneToAttack(target.type, 'dos_attack');
+
+    if (isBlocked) {
+      postSecurityEvent({
+        eventType: 'firewall_blocked_dos',
+        attackerDeviceId,
+        victimDeviceId: targetDeviceId,
+        attackerDeviceName: attacker.name,
+        victimDeviceName: target.name,
+      }).catch((error) => console.error('Failed to send security event', error));
+
+      return { success: true, blocked: true };
+    }
+
+    stopDosFlood(targetDeviceId);
+
+    set((state) => ({
+      devices: state.devices.map((device) =>
+        device.id === targetDeviceId ? { ...device, dosFloodActive: true } : device,
+      ),
+    }));
+
+    const sendDosEvent = () => {
+      postSecurityEvent({
+        eventType: 'dos_attack',
+        attackerDeviceId,
+        victimDeviceId: targetDeviceId,
+        attackerDeviceName: attacker.name,
+        victimDeviceName: target.name,
+      }).catch((error) => console.error('Failed to send security event', error));
+    };
+
+    sendDosEvent();
+
+    const floodInterval = setInterval(() => {
+      const state = get();
+      const path = findPath(state.devices, state.links, attackerDeviceId, targetDeviceId);
+      if (!path) {
+        return;
+      }
+
+      const packet = { ...createPacket(attackerDeviceId, targetDeviceId, path), isDosFlood: true };
+      set((s) => ({ activePackets: [...s.activePackets, packet] }));
+    }, DOS_FLOOD_INTERVAL_MS);
+
+    const eventInterval = setInterval(sendDosEvent, DOS_EVENT_INTERVAL_MS);
+
+    activeDosFloods[targetDeviceId] = { floodInterval, eventInterval };
+
+    return { success: true, blocked: false };
+  },
+
+  stopDosAttack: (targetDeviceId) => {
+    const devices = get().devices;
+    const target = devices.find((device) => device.id === targetDeviceId);
+
+    if (!target) {
+      const reason = 'Cannot stop DoS attack: device not found';
+      console.warn(reason);
+      return { success: false, reason };
+    }
+
+    stopDosFlood(targetDeviceId);
+
+    set((state) => ({
+      devices: state.devices.map((device) =>
+        device.id === targetDeviceId
+          ? { ...device, isOverwhelmed: false, dosFloodTicks: 0, dosFloodActive: false }
+          : device,
+      ),
+    }));
+
+    return { success: true };
+  },
+
+  registerDosPacketArrival: (targetDeviceId) => {
+    const target = get().devices.find((device) => device.id === targetDeviceId);
+
+    if (!target || !target.dosFloodActive || target.isOverwhelmed) {
+      return;
+    }
+
+    const ticks = target.dosFloodTicks + 1;
+    const justCrossed = ticks >= DOS_OVERWHELM_THRESHOLD_TICKS;
+
+    set((s) => ({
+      devices: s.devices.map((device) =>
+        device.id === targetDeviceId ? { ...device, dosFloodTicks: ticks, isOverwhelmed: justCrossed } : device,
+      ),
+    }));
+
+    if (justCrossed) {
+      get().pushToast(`${target.name} has gone down due to DoS overload`, 'error');
+    }
   },
 }));

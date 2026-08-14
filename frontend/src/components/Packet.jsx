@@ -10,6 +10,7 @@ function Packet({ packet }) {
   const devices = useTopologyStore((state) => state.devices);
   const updatePacketState = useTopologyStore((state) => state.updatePacketState);
   const removePacket = useTopologyStore((state) => state.removePacket);
+  const registerDosPacketArrival = useTopologyStore((state) => state.registerDosPacketArrival);
 
   const packetRef = useRef(packet);
   const lastTimeRef = useRef(null);
@@ -60,6 +61,9 @@ function Packet({ packet }) {
 
       if (isPacketArrived(advanced)) {
         removePacket(advanced.id);
+        if (advanced.isDosFlood) {
+          registerDosPacketArrival(advanced.targetNodeId);
+        }
         return;
       }
 

@@ -39,7 +39,17 @@ function useSvgImage(src) {
   return image;
 }
 
-function DeviceNode({ device, onOpenSettings, onHoverChange, onSelect, isSelected, isPoisoned, pulseOpacity }) {
+function DeviceNode({
+  device,
+  onOpenSettings,
+  onHoverChange,
+  onSelect,
+  isSelected,
+  isPoisoned,
+  pulseOpacity,
+  isOverwhelmed,
+  dosProgress = 0,
+}) {
   const updateDevicePosition = useTopologyStore((state) => state.updateDevicePosition);
   const addLink = useTopologyStore((state) => state.addLink);
   const removeDevice = useTopologyStore((state) => state.removeDevice);
@@ -231,6 +241,28 @@ function DeviceNode({ device, onOpenSettings, onHoverChange, onSelect, isSelecte
       {isSelected && <Circle radius={26} stroke="#4d9fff" strokeWidth={2} listening={false} />}
       {isPoisoned && (
         <Circle radius={30} stroke="#e74c3c" strokeWidth={3} opacity={pulseOpacity} listening={false} />
+      )}
+      {isOverwhelmed && (
+        <Circle radius={8} x={-18} y={-18} fill="#e74c3c" stroke="white" strokeWidth={1.5} listening={false} />
+      )}
+      {!isOverwhelmed && dosProgress > 0 && (
+        <>
+          <Rect x={-15} y={-38} width={30} height={6} stroke="#e74c3c" strokeWidth={1} listening={false} />
+          <Rect x={-15} y={-38} width={30 * dosProgress} height={6} fill="#e74c3c" listening={false} />
+        </>
+      )}
+      {isOverwhelmed && (
+        <Text
+          x={-15}
+          y={-38}
+          width={30}
+          text="DOWN"
+          fontSize={9}
+          fontStyle="bold"
+          fill="#e74c3c"
+          align="center"
+          listening={false}
+        />
       )}
       <Circle
         x={DELETE_BUTTON_OFFSET}

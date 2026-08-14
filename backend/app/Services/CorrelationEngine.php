@@ -15,6 +15,7 @@ class CorrelationEngine
     private const RULES = [
         'arp_spoof' => ['ruleName' => 'repeated_arp_spoof', 'label' => 'ARP spoofing'],
         'dns_poison' => ['ruleName' => 'repeated_dns_poison', 'label' => 'DNS poisoning'],
+        'dos_attack' => ['ruleName' => 'repeated_dos_attack', 'label' => 'DoS attack'],
     ];
 
     public static function correlate(SecurityEvent $event): void

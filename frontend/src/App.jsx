@@ -13,6 +13,7 @@ import LoadTopologyPanel from './components/LoadTopologyPanel';
 import { useTopologyStore } from './store/topologyStore';
 import { findActivePoisonings, buildArpSpoofToastMessage } from './engine/arpSpoofing';
 import { findActiveDnsPoisonings, buildDnsPoisonToastMessage } from './engine/dnsPoisoning';
+import { buildDosAttackToastMessage } from './engine/dosAttack';
 import { canBeVictim } from './engine/attackRoles';
 
 function App() {
@@ -30,6 +31,8 @@ function App() {
   const stopArpSpoof = useTopologyStore((state) => state.stopArpSpoof);
   const triggerDnsPoison = useTopologyStore((state) => state.triggerDnsPoison);
   const stopDnsPoison = useTopologyStore((state) => state.stopDnsPoison);
+  const triggerDosAttack = useTopologyStore((state) => state.triggerDosAttack);
+  const stopDosAttack = useTopologyStore((state) => state.stopDosAttack);
   const pushToast = useTopologyStore((state) => state.pushToast);
   const devices = useTopologyStore((state) => state.devices);
   const links = useTopologyStore((state) => state.links);
@@ -54,6 +57,10 @@ function App() {
   const [targetDomain, setTargetDomain] = useState('');
   const [fakeIp, setFakeIp] = useState('');
   const [dnsError, setDnsError] = useState(null);
+
+  const [dosAttackerDeviceId, setDosAttackerDeviceId] = useState('');
+  const [dosTargetDeviceId, setDosTargetDeviceId] = useState('');
+  const [dosError, setDosError] = useState(null);
 
   const handleTriggerArpSpoof = () => {
     const result = triggerArpSpoof(attackerDeviceId, victimDeviceId, impersonatedDeviceId, arpBidirectional);
@@ -137,6 +144,41 @@ function App() {
 
   const isDnsAttackActive = activeDnsPoisonings.some(
     (poisoning) => poisoning.victimDeviceId === dnsVictimDeviceId && poisoning.targetDomain === targetDomain,
+  );
+
+  const handleTriggerDosAttack = () => {
+    const result = triggerDosAttack(dosAttackerDeviceId, dosTargetDeviceId);
+
+    if (!result?.success) {
+      setDosError(result?.reason ?? 'Cannot trigger DoS attack');
+      return;
+    }
+
+    setDosError(null);
+
+    const target = devices.find((device) => device.id === dosTargetDeviceId);
+
+    const { message, type } = buildDosAttackToastMessage({
+      blocked: result.blocked,
+      targetName: target?.name,
+    });
+
+    pushToast(message, type);
+  };
+
+  const handleStopDosAttack = () => {
+    const result = stopDosAttack(dosTargetDeviceId);
+
+    if (!result?.success) {
+      setDosError(result?.reason ?? 'Cannot stop DoS attack');
+      return;
+    }
+
+    setDosError(null);
+  };
+
+  const isDosAttackActive = Boolean(
+    devices.find((device) => device.id === dosTargetDeviceId)?.dosFloodActive,
   );
 
   const pushPingHistory = (entry) => {
@@ -325,6 +367,14 @@ function App() {
             dnsError={dnsError}
             isDnsAttackActive={isDnsAttackActive}
             handleStopDnsPoison={handleStopDnsPoison}
+            dosAttackerDeviceId={dosAttackerDeviceId}
+            setDosAttackerDeviceId={setDosAttackerDeviceId}
+            dosTargetDeviceId={dosTargetDeviceId}
+            setDosTargetDeviceId={setDosTargetDeviceId}
+            handleTriggerDosAttack={handleTriggerDosAttack}
+            dosError={dosError}
+            isDosAttackActive={isDosAttackActive}
+            handleStopDosAttack={handleStopDosAttack}
           />
         </div>
       )}

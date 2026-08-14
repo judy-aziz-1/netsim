@@ -232,10 +232,10 @@ button, input, select, textarea {
   gap: 6px;
   padding: 7px 14px;
   border-radius: 7px;
-  background: transparent;
-  border: 1px solid var(--ns-border);
+  background: rgba(245, 185, 66, 0.1);
+  border: 1px solid rgba(245, 185, 66, 0.35);
   cursor: pointer;
-  color: var(--ns-text-dim);
+  color: var(--gold);
   font-size: 12px;
   font-weight: 600;
   font-family: var(--ns-sans);
@@ -617,6 +617,24 @@ select option {
 .ns-clear-btn:hover {
   background: rgba(231, 76, 60, 0.16);
   border-color: rgba(231, 76, 60, 0.5);
+}
+
+.ns-sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.ns-clear-btn-primary {
+  border-color: rgba(77, 159, 255, 0.35);
+  background: rgba(77, 159, 255, 0.12);
+  color: var(--ns-accent);
+}
+
+.ns-clear-btn-primary:hover {
+  background: rgba(77, 159, 255, 0.22);
+  border-color: rgba(77, 159, 255, 0.55);
 }
 
 .ns-device-icon {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useTopologyStore } from './topologyStore';
 import { buildArpTable, findActivePoisonings } from '../engine/arpSpoofing';
 import { buildDnsTable, findActiveDnsPoisonings } from '../engine/dnsPoisoning';
@@ -1215,6 +1215,42 @@ describe('saveTopology / loadTopology', () => {
     expect(newDevice.id).not.toBe('device-7');
     expect(newDevice.name).toBe('pc-4');
   });
+
+  it('regression: loadTopology backfills missing dosFloodTicks/isOverwhelmed/dosFloodActive on legacy saves, so DoS still works correctly on the very first trigger', () => {
+    const { loadTopology, triggerDosAttack } = useTopologyStore.getState();
+
+    // Shaped like a topology saved before these fields existed - no
+    // isOverwhelmed/dosFloodTicks/dosFloodActive keys at all.
+    const legacyDevices = [
+      { id: 'device-1', type: 'attacker', x: 0, y: 0, name: 'attacker-1', mac: 'aa:aa:aa:aa:aa:aa', ip: '10.0.0.1' },
+      { id: 'device-2', type: 'server', x: 0, y: 0, name: 'server-1', mac: 'bb:bb:bb:bb:bb:bb', ip: '10.0.0.2' },
+    ];
+    const legacyLinks = [
+      { id: 'link-1', sourceDeviceId: 'device-1', targetDeviceId: 'device-2', type: 'standard', enabled: true, speed: 100 },
+    ];
+
+    loadTopology({ devices: legacyDevices, links: legacyLinks });
+
+    const loaded = useTopologyStore.getState().devices.find((d) => d.id === 'device-2');
+    expect(loaded).toMatchObject({ isOverwhelmed: false, dosFloodTicks: 0, dosFloodActive: false });
+
+    vi.useFakeTimers();
+    const result = triggerDosAttack('device-1', 'device-2');
+    expect(result).toEqual({ success: true, blocked: false });
+
+    const { registerDosPacketArrival } = useTopologyStore.getState();
+    for (let i = 0; i < 12; i += 1) {
+      registerDosPacketArrival('device-2');
+    }
+
+    const server = useTopologyStore.getState().devices.find((d) => d.id === 'device-2');
+    expect(server.dosFloodTicks).toBe(12);
+    expect(Number.isNaN(server.dosFloodTicks)).toBe(false);
+    expect(server.isOverwhelmed).toBe(true);
+
+    useTopologyStore.getState().stopDosAttack('device-2');
+    vi.useRealTimers();
+  });
 });
 
 describe('toasts', () => {
@@ -1327,5 +1363,192 @@ describe('postSecurityEvent device name snapshots', () => {
     const body = lastPostedEventBody();
     expect(body.attackerDeviceName).toBe(attacker.name);
     expect(body.victimDeviceName).toBe(pc.name);
+  });
+});
+
+describe('triggerDosAttack / stopDosAttack', () => {
+  afterEach(() => {
+    // Any attack left running by a test would otherwise keep firing its
+    // setInterval loops against a topology the next test has already reset.
+    const targetId = useTopologyStore.getState().devices.find((device) => device.isOverwhelmed)?.id;
+    if (targetId) {
+      useTopologyStore.getState().stopDosAttack(targetId);
+    }
+    vi.useRealTimers();
+  });
+
+  it('succeeds against a non-immune target: sets isOverwhelmed and starts a packet flood', () => {
+    const { addDevice, addLink, triggerDosAttack } = useTopologyStore.getState();
+
+    addDevice('attacker', 0, 0);
+    addDevice('server', 0, 0);
+    const [attacker, server] = useTopologyStore.getState().devices;
+    addLink(attacker.id, server.id);
+
+    vi.useFakeTimers();
+    const result = triggerDosAttack(attacker.id, server.id);
+
+    expect(result).toEqual({ success: true, blocked: false });
+    expect(useTopologyStore.getState().devices.find((d) => d.id === server.id).isOverwhelmed).toBe(false);
+    expect(useTopologyStore.getState().activePackets).toHaveLength(0);
+
+    vi.advanceTimersByTime(350);
+
+    expect(useTopologyStore.getState().activePackets.length).toBeGreaterThan(0);
+
+    const { registerDosPacketArrival } = useTopologyStore.getState();
+    for (let i = 0; i < 12; i += 1) {
+      registerDosPacketArrival(server.id);
+    }
+
+    expect(useTopologyStore.getState().devices.find((d) => d.id === server.id).isOverwhelmed).toBe(true);
+  });
+
+  it('is blocked against an immune (firewall) target: no isOverwhelmed, no flood, blocked event sent', () => {
+    const { addDevice, addLink, triggerDosAttack } = useTopologyStore.getState();
+
+    addDevice('attacker', 0, 0);
+    addDevice('firewall', 0, 0);
+    const [attacker, firewall] = useTopologyStore.getState().devices;
+    addLink(attacker.id, firewall.id);
+
+    vi.useFakeTimers();
+    const result = triggerDosAttack(attacker.id, firewall.id);
+
+    expect(result).toEqual({ success: true, blocked: true });
+    expect(useTopologyStore.getState().devices.find((d) => d.id === firewall.id).isOverwhelmed).toBe(false);
+    expect(useTopologyStore.getState().devices.find((d) => d.id === firewall.id).dosFloodActive).toBe(false);
+
+    vi.advanceTimersByTime(1000);
+    expect(useTopologyStore.getState().activePackets).toHaveLength(0);
+
+    const calls = fetch.mock.calls.filter(([url]) => url.endsWith('/security-events'));
+    const [, options] = calls[calls.length - 1];
+    expect(JSON.parse(options.body).eventType).toBe('firewall_blocked_dos');
+  });
+
+  it('stopDosAttack clears isOverwhelmed and stops further packets from being created', () => {
+    const { addDevice, addLink, triggerDosAttack, stopDosAttack } = useTopologyStore.getState();
+
+    addDevice('attacker', 0, 0);
+    addDevice('server', 0, 0);
+    const [attacker, server] = useTopologyStore.getState().devices;
+    addLink(attacker.id, server.id);
+
+    vi.useFakeTimers();
+    triggerDosAttack(attacker.id, server.id);
+
+    const { registerDosPacketArrival } = useTopologyStore.getState();
+    for (let i = 0; i < 12; i += 1) {
+      registerDosPacketArrival(server.id);
+    }
+
+    expect(useTopologyStore.getState().devices.find((d) => d.id === server.id).isOverwhelmed).toBe(true);
+
+    const stopResult = stopDosAttack(server.id);
+    expect(stopResult).toEqual({ success: true });
+    expect(useTopologyStore.getState().devices.find((d) => d.id === server.id).isOverwhelmed).toBe(false);
+
+    const packetCountAfterStop = useTopologyStore.getState().activePackets.length;
+    vi.advanceTimersByTime(2000);
+
+    expect(useTopologyStore.getState().activePackets.length).toBe(packetCountAfterStop);
+  });
+
+  it('rejects a target that does not pass isValidDosTarget (e.g. a pc)', () => {
+    const { addDevice, addLink, triggerDosAttack } = useTopologyStore.getState();
+
+    addDevice('attacker', 0, 0);
+    addDevice('pc', 0, 0);
+    const [attacker, pc] = useTopologyStore.getState().devices;
+    addLink(attacker.id, pc.id);
+
+    const result = triggerDosAttack(attacker.id, pc.id);
+
+    expect(result.success).toBe(false);
+  });
+
+  it('regression: dosFloodTicks/isOverwhelmed only advance on actual packet arrival, not on the send interval alone', () => {
+    const { addDevice, addLink, triggerDosAttack, registerDosPacketArrival } = useTopologyStore.getState();
+
+    addDevice('attacker', 0, 0);
+    addDevice('server', 0, 0);
+    const [attacker, server] = useTopologyStore.getState().devices;
+    addLink(attacker.id, server.id);
+
+    vi.useFakeTimers();
+    triggerDosAttack(attacker.id, server.id);
+
+    const getServer = () => useTopologyStore.getState().devices.find((d) => d.id === server.id);
+
+    // Advancing the send-interval alone (no simulated arrivals) must never
+    // move dosFloodTicks - packets are launched here, not delivered.
+    vi.advanceTimersByTime(350 * 20);
+    expect(getServer().dosFloodTicks).toBe(0);
+    expect(getServer().isOverwhelmed).toBe(false);
+
+    // 11 arrivals: still below the 12-tick threshold.
+    for (let i = 0; i < 11; i += 1) {
+      registerDosPacketArrival(server.id);
+    }
+    expect(getServer().dosFloodTicks).toBe(11);
+    expect(getServer().isOverwhelmed).toBe(false);
+
+    // The 12th arrival crosses it.
+    registerDosPacketArrival(server.id);
+    expect(getServer().dosFloodTicks).toBe(12);
+    expect(getServer().isOverwhelmed).toBe(true);
+  });
+
+  it('regression: registerDosPacketArrival is a no-op once the attack has been stopped (in-flight packets arriving after Stop)', () => {
+    const { addDevice, addLink, triggerDosAttack, stopDosAttack, registerDosPacketArrival } = useTopologyStore.getState();
+
+    addDevice('attacker', 0, 0);
+    addDevice('server', 0, 0);
+    const [attacker, server] = useTopologyStore.getState().devices;
+    addLink(attacker.id, server.id);
+
+    vi.useFakeTimers();
+    triggerDosAttack(attacker.id, server.id);
+
+    const getServer = () => useTopologyStore.getState().devices.find((d) => d.id === server.id);
+
+    registerDosPacketArrival(server.id);
+    registerDosPacketArrival(server.id);
+    expect(getServer().dosFloodTicks).toBe(2);
+
+    stopDosAttack(server.id);
+    expect(getServer().dosFloodTicks).toBe(0);
+    expect(getServer().dosFloodActive).toBe(false);
+
+    // Simulate an already-in-flight packet landing after Stop was clicked.
+    registerDosPacketArrival(server.id);
+
+    expect(getServer().dosFloodTicks).toBe(0);
+    expect(getServer().isOverwhelmed).toBe(false);
+  });
+
+  it('regression: dosFloodActive (the panel\'s ACTIVE indicator) is true immediately on trigger, decoupled from isOverwhelmed', () => {
+    const { addDevice, addLink, triggerDosAttack, stopDosAttack } = useTopologyStore.getState();
+
+    addDevice('attacker', 0, 0);
+    addDevice('server', 0, 0);
+    const [attacker, server] = useTopologyStore.getState().devices;
+    addLink(attacker.id, server.id);
+
+    vi.useFakeTimers();
+    const result = triggerDosAttack(attacker.id, server.id);
+
+    expect(result).toEqual({ success: true, blocked: false });
+
+    const getServer = () => useTopologyStore.getState().devices.find((d) => d.id === server.id);
+
+    expect(getServer().dosFloodActive).toBe(true);
+    expect(getServer().isOverwhelmed).toBe(false);
+
+    const stopResult = stopDosAttack(server.id);
+
+    expect(stopResult).toEqual({ success: true });
+    expect(getServer().dosFloodActive).toBe(false);
   });
 });
