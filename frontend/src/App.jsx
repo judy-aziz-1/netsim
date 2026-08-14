@@ -8,14 +8,19 @@ import LinkSettingsPanel from './components/LinkSettingsPanel';
 import DeviceSidebar from './components/DeviceSidebar';
 import AttackPanel from './components/AttackPanel';
 import ToastContainer from './components/ToastContainer';
+import SaveTopologyPanel from './components/SaveTopologyPanel';
+import LoadTopologyPanel from './components/LoadTopologyPanel';
 import { useTopologyStore } from './store/topologyStore';
-import { findActivePoisonings } from './engine/arpSpoofing';
-import { findActiveDnsPoisonings } from './engine/dnsPoisoning';
+import { findActivePoisonings, buildArpSpoofToastMessage } from './engine/arpSpoofing';
+import { findActiveDnsPoisonings, buildDnsPoisonToastMessage } from './engine/dnsPoisoning';
+import { canBeVictim } from './engine/attackRoles';
 
 function App() {
   const [activeTab, setActiveTab] = useState('editor');
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
   const [selectedLinkId, setSelectedLinkId] = useState(null);
+  const [showSaveTopology, setShowSaveTopology] = useState(false);
+  const [showLoadTopology, setShowLoadTopology] = useState(false);
   const [openAlertsCount, setOpenAlertsCount] = useState(0);
   const [openTicketsCount, setOpenTicketsCount] = useState(0);
   const pendingLinkType = useTopologyStore((state) => state.pendingLinkType);
@@ -64,9 +69,16 @@ function App() {
     const victim = devices.find((device) => device.id === victimDeviceId);
     const impersonated = devices.find((device) => device.id === impersonatedDeviceId);
 
-    pushToast(
-      `victim device ${victim?.name} now believes MAC of attacker ${attacker?.name} belongs to device ${impersonated?.name}`,
-    );
+    const { message, type } = buildArpSpoofToastMessage({
+      bidirectional: arpBidirectional,
+      forwardBlocked: result.forwardBlocked,
+      reverseBlocked: result.reverseBlocked,
+      attackerName: attacker?.name,
+      victimName: victim?.name,
+      impersonatedName: impersonated?.name,
+    });
+
+    pushToast(message, type);
   };
 
   const handleStopArpSpoof = () => {
@@ -100,7 +112,14 @@ function App() {
 
     const victim = devices.find((device) => device.id === dnsVictimDeviceId);
 
-    pushToast(`victim device ${victim?.name} now resolves ${targetDomain} to ${fakeIp}`);
+    const { message, type } = buildDnsPoisonToastMessage({
+      blocked: result.blocked,
+      victimName: victim?.name,
+      targetDomain,
+      fakeIp,
+    });
+
+    pushToast(message, type);
   };
 
   const handleStopDnsPoison = () => {
@@ -168,6 +187,30 @@ function App() {
     }
   }, [activePackets, pendingPing]);
 
+  useEffect(() => {
+    if (!targetDomain) return;
+
+    const stillValid = devices.some(
+      (device) =>
+        canBeVictim(device.type) &&
+        device.id !== dnsVictimDeviceId &&
+        `${device.name}.local` === targetDomain,
+    );
+
+    if (!stillValid) {
+      setTargetDomain('');
+    }
+  }, [devices, dnsVictimDeviceId, targetDomain]);
+
+  const handleLeaveToLevelList = () => {
+    const target = 'http://localhost:8080';
+    if (window.top && window.top !== window.self) {
+      window.top.location.href = target;
+    } else {
+      window.location.href = target;
+    }
+  };
+
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
   const selectedLink = links.find((link) => link.id === selectedLinkId) ?? null;
 
@@ -190,6 +233,13 @@ function App() {
         </div>
 
         <div className="app-tabs-row">
+          <button
+            className="leave-app-button"
+            onClick={handleLeaveToLevelList}
+            title="Leave this app and return to the base site's level list"
+          >
+            <span aria-hidden="true">&#8592;</span> Level List
+          </button>
           <button
             className={`tab-button ${activeTab === 'editor' ? 'active' : ''}`}
             onClick={() => setActiveTab('editor')}
@@ -226,7 +276,10 @@ function App() {
 
       {activeTab === 'editor' && (
         <div className="ns-editor-body">
-          <DeviceSidebar />
+          <DeviceSidebar
+            onOpenSaveTopology={() => setShowSaveTopology(true)}
+            onOpenLoadTopology={() => setShowLoadTopology(true)}
+          />
 
           <div className="ns-canvas-wrap">
             <div className="ns-canvas-grid" />
@@ -296,6 +349,9 @@ function App() {
           onClose={() => setSelectedLinkId(null)}
         />
       )}
+
+      {showSaveTopology && <SaveTopologyPanel onClose={() => setShowSaveTopology(false)} />}
+      {showLoadTopology && <LoadTopologyPanel onClose={() => setShowLoadTopology(false)} />}
     </div>
   );
 }

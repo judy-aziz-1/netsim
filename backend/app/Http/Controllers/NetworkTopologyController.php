@@ -23,4 +23,12 @@ class NetworkTopologyController extends Controller
 
         return response()->json($topology, 201);
     }
+
+    public function destroy($id)
+    {
+        $topology = NetworkTopology::findOrFail($id);
+        $topology->delete();
+
+        return response()->json(['success' => true]);
+    }
 }

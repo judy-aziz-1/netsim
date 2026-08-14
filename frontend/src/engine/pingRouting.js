@@ -1,5 +1,6 @@
 import { canForward } from './deviceCapabilities';
 import { formatSpeedLabel } from './connectionCapabilities';
+import { buildArpTable } from './arpSpoofing';
 
 function buildAdjacency(links) {
   const adjacency = new Map();
@@ -70,16 +71,25 @@ export function findPath(devices, links, sourceId, targetId, { relayDeviceIds = 
   return path;
 }
 
-export function getImmediateNeighborId(deviceId, links) {
-  const link = links.find(
-    (candidate) => candidate.sourceDeviceId === deviceId || candidate.targetDeviceId === deviceId,
-  );
-
-  if (!link) {
-    return null;
+// A device's own ARP table is already the definitive, order-independent list of
+// who it can reach on its real local segment (buildArpTable's switch-transitive
+// BFS). Deriving "same segment" from that — instead of picking one arbitrary
+// link out of a possibly multi-linked device — means the answer never depends
+// on which of a device's links happened to be created first.
+export function isDeviceOnRealSegment(deviceId, referenceDeviceId, devices, links) {
+  if (deviceId === referenceDeviceId) {
+    return true;
   }
 
-  return link.sourceDeviceId === deviceId ? link.targetDeviceId : link.sourceDeviceId;
+  const device = devices.find((candidate) => candidate.id === deviceId);
+
+  if (!device || !device.ip) {
+    return false;
+  }
+
+  const referenceTable = buildArpTable(devices, links)[referenceDeviceId];
+
+  return Boolean(referenceTable && Object.prototype.hasOwnProperty.call(referenceTable, device.ip));
 }
 
 export function isAttackerOnSameSegment(attackerDeviceId, referenceDeviceId, links) {
@@ -156,24 +166,21 @@ export function findMitmRedirect(sourceId, targetId, devices, links, arpTables, 
   return { mitm: false };
 }
 
-export function buildPingRoute(sourceId, targetId, devices, links, arpTables, dnsTables) {
-  const deviceById = new Map(devices.map((device) => [device.id, device]));
-
-  if (!deviceById.has(sourceId) || !deviceById.has(targetId)) {
-    return {
-      success: false,
-      reason: 'device_not_found',
-      message: 'Select both source and target devices',
-    };
-  }
-
-  const redirect = findMitmRedirect(sourceId, targetId, devices, links, arpTables, dnsTables);
+// Evaluates a single direction's routing decision (does fromId's own ARP/DNS
+// table redirect its packets toward toId through an attacker, or go direct).
+// Used for both the forward leg (source->target) and, independently, the
+// reverse leg (target->source) — findMitmRedirect already keys every table
+// lookup off its first argument, so calling it with the arguments swapped is
+// enough to correctly check the *other* device's own table, with no changes
+// to findMitmRedirect itself.
+function buildLegRoute(fromId, toId, devices, links, arpTables, dnsTables) {
+  const redirect = findMitmRedirect(fromId, toId, devices, links, arpTables, dnsTables);
 
   if (redirect.mitm) {
-    const pathToAttacker = findPath(devices, links, sourceId, redirect.attackerDeviceId);
+    const pathToAttacker = findPath(devices, links, fromId, redirect.attackerDeviceId);
 
     if (pathToAttacker) {
-      const relayPath = findPath(devices, links, redirect.attackerDeviceId, targetId, {
+      const relayPath = findPath(devices, links, redirect.attackerDeviceId, toId, {
         relayDeviceIds: [redirect.attackerDeviceId],
       });
 
@@ -190,7 +197,7 @@ export function buildPingRoute(sourceId, targetId, devices, links, arpTables, dn
     }
   }
 
-  const path = findPath(devices, links, sourceId, targetId);
+  const path = findPath(devices, links, fromId, toId);
 
   if (!path) {
     return {
@@ -201,6 +208,39 @@ export function buildPingRoute(sourceId, targetId, devices, links, arpTables, dn
   }
 
   return { success: true, path, hops: path.length - 1, mitm: false };
+}
+
+export function buildPingRoute(sourceId, targetId, devices, links, arpTables, dnsTables) {
+  const deviceById = new Map(devices.map((device) => [device.id, device]));
+
+  if (!deviceById.has(sourceId) || !deviceById.has(targetId)) {
+    return {
+      success: false,
+      reason: 'device_not_found',
+      message: 'Select both source and target devices',
+    };
+  }
+
+  const forward = buildLegRoute(sourceId, targetId, devices, links, arpTables, dnsTables);
+
+  if (!forward.success) {
+    return forward;
+  }
+
+  const reverse = buildLegRoute(targetId, sourceId, devices, links, arpTables, dnsTables);
+
+  return {
+    success: true,
+    path: forward.path,
+    hops: forward.hops,
+    mitm: forward.mitm,
+    via: forward.via,
+    attackerDeviceId: forward.attackerDeviceId,
+    reversePath: reverse.success ? reverse.path : [...forward.path].reverse(),
+    reverseMitm: reverse.success ? reverse.mitm : false,
+    reverseVia: reverse.success ? reverse.via : undefined,
+    reverseAttackerDeviceId: reverse.success ? reverse.attackerDeviceId : undefined,
+  };
 }
 
 // Reference point chosen so that a link with no explicit `speed` (legacy/test
@@ -247,8 +287,8 @@ export function calculatePingLatencyMs(path, links) {
   return total;
 }
 
-export function buildRoundTripPath(path) {
-  return path.concat(path.slice(0, -1).reverse());
+export function buildRoundTripPath(forwardPath, reversePath) {
+  return forwardPath.concat(reversePath.slice(1));
 }
 
 export function describeLinkTypes(path, links) {

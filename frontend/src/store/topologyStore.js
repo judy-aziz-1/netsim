@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { createPacket } from '../engine/packetMovement';
 import { buildArpTable, simulateArpSpoof, clearArpPoison } from '../engine/arpSpoofing';
 import { buildDnsTable, simulateDnsPoison, clearDnsPoison } from '../engine/dnsPoisoning';
-import { postSecurityEvent } from '../api/client';
+import { postSecurityEvent, createNetworkTopology, deleteNetworkTopology } from '../api/client';
 import { getMaxConnections, isImmuneToAttack } from '../engine/deviceCapabilities';
 import { canBeAttacker, canBeVictim, canBeImpersonated } from '../engine/attackRoles';
 import { isValidConnectionType, getDefaultSpeed } from '../engine/connectionCapabilities';
@@ -12,8 +12,7 @@ import {
   calculatePingLatencyMs,
   describeLinkTypes,
   describeLinkDetail,
-  getImmediateNeighborId,
-  isAttackerOnSameSegment,
+  isDeviceOnRealSegment,
   findPath,
 } from '../engine/pingRouting';
 
@@ -41,6 +40,15 @@ function randomMac() {
 }
 
 let linkIdCounter = 0;
+
+function numericSuffix(value, prefix) {
+  if (typeof value !== 'string' || !value.startsWith(prefix)) {
+    return 0;
+  }
+
+  const parsed = parseInt(value.slice(prefix.length), 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 export const useTopologyStore = create((set, get) => ({
   devices: [],
@@ -229,6 +237,7 @@ export const useTopologyStore = create((set, get) => ({
   clearTopology: () =>
     set({
       devices: [],
+      deviceCounts: {},
       links: [],
       connectingFromDeviceId: null,
       activePackets: [],
@@ -241,6 +250,50 @@ export const useTopologyStore = create((set, get) => ({
   setConnectingFromDeviceId: (id) => set({ connectingFromDeviceId: id }),
 
   setPendingLinkType: (type) => set({ pendingLinkType: type }),
+
+  saveTopology: async (name) => {
+    const { devices, links } = get();
+
+    try {
+      const topology = await createNetworkTopology(name, { devices, links });
+      return { success: true, topology };
+    } catch (error) {
+      return { success: false, reason: error.message };
+    }
+  },
+
+  deleteTopology: async (id) => {
+    try {
+      await deleteNetworkTopology(id);
+      return { success: true };
+    } catch (error) {
+      return { success: false, reason: error.message };
+    }
+  },
+
+  loadTopology: (topologyData) => {
+    const loadedDevices = topologyData?.devices ?? [];
+    const loadedLinks = topologyData?.links ?? [];
+
+    get().clearTopology();
+
+    deviceIdCounter = Math.max(deviceIdCounter, ...loadedDevices.map((d) => numericSuffix(d.id, 'device-')), 0);
+    linkIdCounter = Math.max(linkIdCounter, ...loadedLinks.map((l) => numericSuffix(l.id, 'link-')), 0);
+
+    const deviceCounts = {};
+    loadedDevices.forEach((device) => {
+      const suffix = numericSuffix(device.name, `${device.type}-`);
+      deviceCounts[device.type] = Math.max(deviceCounts[device.type] ?? 0, suffix);
+    });
+
+    set({
+      devices: loadedDevices,
+      links: loadedLinks,
+      deviceCounts,
+      arpTables: buildArpTable(loadedDevices, loadedLinks),
+      dnsTables: buildDnsTable(loadedDevices),
+    });
+  },
 
   sendPacket: (sourceDeviceId, targetDeviceId) => {
     const devices = get().devices;
@@ -293,10 +346,10 @@ export const useTopologyStore = create((set, get) => ({
       };
     }
 
-    const fullPath = buildRoundTripPath(route.path);
+    const fullPath = buildRoundTripPath(route.path, route.reversePath);
     const latencyMs =
       calculatePingLatencyMs(route.path, state.links) +
-      calculatePingLatencyMs([...route.path].reverse(), state.links);
+      calculatePingLatencyMs(route.reversePath, state.links);
     const linkTypeSummary = describeLinkTypes(route.path, state.links);
     const linkDetail = describeLinkDetail(route.path, state.links);
 
@@ -311,6 +364,7 @@ export const useTopologyStore = create((set, get) => ({
       hops: route.hops,
       latencyMs,
       mitm: route.mitm,
+      reverseMitm: route.reverseMitm,
       linkTypeSummary,
       linkDetail,
       packetId: packet.id,
@@ -373,18 +427,20 @@ export const useTopologyStore = create((set, get) => ({
       return { success: false, reason };
     }
 
-    const victimNeighborId = getImmediateNeighborId(victimDeviceId, get().links);
-
-    if (!isAttackerOnSameSegment(attackerDeviceId, victimNeighborId, get().links)) {
+    if (!isDeviceOnRealSegment(attackerDeviceId, victimDeviceId, devices, get().links)) {
       const reason = `Cannot trigger ARP spoof: ${attacker.name} is not on the same local network segment as ${victim.name}`;
       console.warn(reason);
       return { success: false, reason };
     }
 
-    if (bidirectional) {
-      const impersonatedNeighborId = getImmediateNeighborId(impersonatedDeviceId, get().links);
+    if (!isDeviceOnRealSegment(impersonatedDeviceId, victimDeviceId, devices, get().links)) {
+      const reason = `Cannot trigger ARP spoof: ${impersonated.name} is not on the same local network segment as ${victim.name} (nothing to impersonate)`;
+      console.warn(reason);
+      return { success: false, reason };
+    }
 
-      if (!isAttackerOnSameSegment(attackerDeviceId, impersonatedNeighborId, get().links)) {
+    if (bidirectional) {
+      if (!isDeviceOnRealSegment(attackerDeviceId, impersonatedDeviceId, devices, get().links)) {
         const reason = `Cannot trigger bidirectional ARP spoof: ${attacker.name} is not on the same local network segment as ${impersonated.name}`;
         console.warn(reason);
         return { success: false, reason };
@@ -431,6 +487,9 @@ export const useTopologyStore = create((set, get) => ({
       attackerDeviceId,
       victimDeviceId,
       impersonatedDeviceId,
+      attackerDeviceName: attacker.name,
+      victimDeviceName: victim.name,
+      impersonatedDeviceName: impersonated.name,
     }).catch((error) => console.error('Failed to send security event', error));
 
     if (bidirectional) {
@@ -439,10 +498,13 @@ export const useTopologyStore = create((set, get) => ({
         attackerDeviceId,
         victimDeviceId: impersonatedDeviceId,
         impersonatedDeviceId: victimDeviceId,
+        attackerDeviceName: attacker.name,
+        victimDeviceName: impersonated.name,
+        impersonatedDeviceName: victim.name,
       }).catch((error) => console.error('Failed to send security event', error));
     }
 
-    return { success: true };
+    return { success: true, forwardBlocked: isBlockedForward, reverseBlocked: isBlockedReverse };
   },
 
   stopArpSpoof: (victimDeviceId, impersonatedDeviceId) => {
@@ -457,8 +519,32 @@ export const useTopologyStore = create((set, get) => ({
     }
 
     set((state) => {
-      let arpTables = clearArpPoison(state.arpTables, victimDeviceId, impersonatedDeviceId);
-      arpTables = clearArpPoison(arpTables, impersonatedDeviceId, victimDeviceId);
+      let arpTables = clearArpPoison(
+        state.arpTables,
+        victimDeviceId,
+        impersonatedDeviceId,
+        state.devices,
+        state.links,
+      );
+
+      // Only touch the reverse direction if it's actually currently poisoned —
+      // a one-way attack never wrote anything into the impersonated device's
+      // own table, so clearing it unconditionally (as this used to do) could
+      // plant a phantom key there. Checking live state instead of trusting a
+      // flag or the (append-only) arpAttackLog means this can't go stale.
+      const reverseCurrentMac = state.arpTables[impersonatedDeviceId]?.[victim.ip];
+      const reverseWasPoisoned = reverseCurrentMac !== undefined && reverseCurrentMac !== victim.mac;
+
+      if (reverseWasPoisoned) {
+        arpTables = clearArpPoison(
+          arpTables,
+          impersonatedDeviceId,
+          victimDeviceId,
+          state.devices,
+          state.links,
+        );
+      }
+
       return { arpTables };
     });
 
@@ -533,10 +619,12 @@ export const useTopologyStore = create((set, get) => ({
       eventType: isBlocked ? 'firewall_blocked_dns_spoof' : 'dns_poison',
       attackerDeviceId,
       victimDeviceId,
+      attackerDeviceName: attacker.name,
+      victimDeviceName: victim.name,
       details: { targetDomain, fakeIp },
     }).catch((error) => console.error('Failed to send security event', error));
 
-    return { success: true };
+    return { success: true, blocked: isBlocked };
   },
 
   stopDnsPoison: (victimDeviceId, targetDomain) => {

@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetSim — هجوم انتحال ARP: دليل شامل</title>
+<style>
+  :root {
+    --ns-bg: #0f1420;
+    --ns-bg-panel: #161d2e;
+    --ns-bg-input: #1c2436;
+    --ns-accent: #4d9fff;
+    --ns-text: #e6ebf5;
+    --ns-text-muted: #6c7a99;
+    --ns-text-dim: #8592ad;
+    --ns-border: rgba(255, 255, 255, 0.08);
+    --ns-border-strong: rgba(255, 255, 255, 0.12);
+    --success: #30c896;
+    --danger: #e74c3c;
+    --warning: #f5a623;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    direction: rtl;
+    background: var(--ns-bg);
+    color: var(--ns-text);
+    font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    line-height: 1.8;
+    padding: 0 0 80px 0;
+  }
+
+  .doc-wrap {
+    direction: rtl;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  header.hero {
+    background: linear-gradient(160deg, var(--ns-bg-panel), var(--ns-bg));
+    border-bottom: 1px solid var(--ns-border);
+    padding: 56px 28px 40px;
+    margin-bottom: 20px;
+  }
+
+  header.hero .hero-inner {
+    max-width: 980px;
+    margin: 0 auto;
+  }
+
+  .eyebrow {
+    color: var(--ns-accent);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 32px;
+    margin: 0 0 12px 0;
+    color: var(--ns-text);
+  }
+
+  .subtitle {
+    color: var(--ns-text-dim);
+    font-size: 16px;
+    max-width: 720px;
+  }
+
+  nav.toc {
+    background: var(--ns-bg-panel);
+    border: 1px solid var(--ns-border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 30px 0 44px;
+  }
+
+  nav.toc h2 {
+    font-size: 13px;
+    color: var(--ns-text-muted);
+    margin: 0 0 12px 0;
+  }
+
+  nav.toc ol {
+    margin: 0;
+    padding-right: 20px;
+    padding-left: 0;
+    columns: 2;
+    column-gap: 32px;
+  }
+
+  nav.toc li { margin-bottom: 8px; break-inside: avoid; }
+  nav.toc a { color: var(--ns-accent); text-decoration: none; font-size: 14.5px; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  section {
+    margin-bottom: 56px;
+    scroll-margin-top: 20px;
+  }
+
+  .section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(77, 159, 255, 0.15);
+    color: var(--ns-accent);
+    font-weight: 700;
+    font-size: 14px;
+    margin-left: 12px;
+    margin-right: 0;
+    flex-shrink: 0;
+  }
+
+  h2 {
+    display: flex;
+    align-items: center;
+    font-size: 22px;
+    color: var(--ns-text);
+    border-bottom: 1px solid var(--ns-border);
+    padding-bottom: 14px;
+    margin: 0 0 22px 0;
+  }
+
+  h3 {
+    font-size: 17px;
+    color: var(--ns-text);
+    margin: 28px 0 12px 0;
+  }
+
+  p { color: var(--ns-text-dim); margin: 0 0 14px 0; }
+  strong { color: var(--ns-text); }
+  code {
+    background: var(--ns-bg-input);
+    border: 1px solid var(--ns-border-strong);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 13px;
+    color: var(--ns-accent);
+    direction: ltr;
+    unicode-bidi: embed;
+    display: inline-block;
+  }
+
+  .card {
+    background: var(--ns-bg-panel);
+    border: 1px solid var(--ns-border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+
+  .callout {
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 18px 0;
+    border: 1px solid var(--ns-border-strong);
+    background: var(--ns-bg-input);
+  }
+  .callout.info { border-right: 4px solid var(--ns-accent); }
+  .callout.verified { border-right: 4px solid var(--success); }
+  .callout.warn { border-right: 4px solid var(--warning); }
+  .callout .callout-title { font-weight: 700; color: var(--ns-text); margin-bottom: 4px; font-size: 13.5px; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+    background: var(--ns-bg-panel);
+    border: 1px solid var(--ns-border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  thead th {
+    background: var(--ns-bg-input);
+    text-align: right;
+    padding: 12px 14px;
+    color: var(--ns-text-muted);
+    font-size: 12px;
+    border-bottom: 1px solid var(--ns-border-strong);
+  }
+
+  tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--ns-border);
+    color: var(--ns-text-dim);
+    vertical-align: top;
+    text-align: right;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child { color: var(--ns-text); font-weight: 600; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .badge-allowed { background: rgba(48, 200, 150, 0.15); color: var(--success); }
+  .badge-forbidden { background: rgba(231, 76, 60, 0.15); color: var(--danger); }
+  .badge-neutral { background: rgba(133, 146, 173, 0.15); color: var(--ns-text-dim); }
+
+  /* Diagrams */
+  .diagram {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    align-items: stretch;
+    margin: 20px 0;
+  }
+
+  .diagram-col { flex: 1; min-width: 260px; }
+  .diagram-label {
+    font-size: 12px;
+    color: var(--ns-text-muted);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .arp-table-box {
+    background: var(--ns-bg-input);
+    border: 1px solid var(--ns-border-strong);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 12.5px;
+    direction: rtl;
+  }
+
+  .arp-table-box .row-head {
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    font-weight: 700;
+    color: var(--ns-text-muted);
+  }
+  .arp-table-box .row {
+    display: flex;
+    border-top: 1px solid var(--ns-border);
+  }
+  .arp-table-box .cell { padding: 8px 10px; flex: 1; }
+  .arp-table-box .row.bad { background: rgba(231, 76, 60, 0.12); }
+  .arp-table-box .row.bad .cell:last-child { color: var(--danger); font-weight: 700; }
+  .arp-table-box .row.good .cell:last-child { color: var(--success); }
+
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ns-text-muted);
+    font-size: 22px;
+    min-width: 30px;
+  }
+
+  .device-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--ns-bg-input);
+    border: 1px solid var(--ns-border-strong);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ns-text);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-attacker { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  .dot-victim { background: var(--warning); }
+  .dot-impersonated { background: var(--ns-accent); }
+
+  .topo-diagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 26px 10px;
+    background: var(--ns-bg-input);
+    border: 1px solid var(--ns-border-strong);
+    border-radius: 10px;
+    margin: 18px 0;
+  }
+  .topo-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 110px;
+  }
+  .topo-node .box {
+    width: 70px;
+    height: 70px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    background: var(--ns-bg-panel);
+    border: 2px solid var(--ns-border-strong);
+  }
+  .topo-node.attacker .box { border-color: var(--danger); color: var(--danger); }
+  .topo-node.switch .box { border-color: var(--ns-text-muted); color: var(--ns-text-dim); border-radius: 50%; }
+  .topo-node.victim .box { border-color: var(--warning); color: var(--warning); }
+  .topo-node.impersonated .box { border-color: var(--ns-accent); color: var(--ns-accent); }
+  .topo-node .name { font-size: 12.5px; font-weight: 700; color: var(--ns-text); direction: ltr; }
+  .topo-node .role { font-size: 11px; color: var(--ns-text-muted); }
+  .topo-link {
+    height: 2px;
+    width: 34px;
+    background: var(--ns-border-strong);
+    align-self: center;
+    margin-top: -26px;
+  }
+
+  .ring-demo {
+    width: 70px; height: 70px; border-radius: 50%;
+    border: 3px solid var(--danger);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 14px rgba(231,76,60,0.55);
+    animation: pulse 1.4s ease-in-out infinite;
+    color: var(--danger); font-size: 22px;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .checklist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 18px 0; }
+  .check-item {
+    background: var(--ns-bg-panel);
+    border: 1px solid var(--ns-border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .check-item .icon { font-size: 20px; flex-shrink: 0; }
+  .check-item .txt { font-size: 13.5px; color: var(--ns-text-dim); }
+  .check-item .txt strong { display: block; color: var(--ns-text); margin-bottom: 3px; font-size: 14px; }
+
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 20px 0; }
+  .steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 4px 46px 22px 0;
+    border-right: 2px solid var(--ns-border-strong);
+    border-left: none;
+    margin-right: 17px;
+    margin-left: 0;
+  }
+  .steps li:last-child { border-right: 2px solid transparent; padding-bottom: 0; }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    right: -18px;
+    left: auto;
+    top: 0;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--ns-accent);
+    color: #08111f;
+    font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .steps .step-title { font-weight: 700; color: var(--ns-text); margin-bottom: 6px; font-size: 15px; }
+
+  footer {
+    text-align: center;
+    color: var(--ns-text-muted);
+    font-size: 12.5px;
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--ns-border);
+  }
+
+  .mono { font-family: "SF Mono", Consolas, Monaco, monospace; font-size: 12.5px; direction: ltr; display: inline-block; }
+
+  @media (max-width: 640px) {
+    nav.toc ol { columns: 1; }
+    h1 { font-size: 25px; }
+    .diagram { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">NetSim &middot; دليل تعليمي</div>
+    <h1>فهم ميزة هجوم انتحال ARP (ARP Spoofing)</h1>
+    <p class="subtitle">
+      شرح شامل من الصفر لنظرية تسميم جداول ARP، وكيفية تنفيذ هذه الميزة والتحقق من صحة مدخلاتها وعرضها بصريًا
+      داخل NetSim — موجَّه لقارئ لا يملك أي خلفية سابقة في الشبكات.
+    </p>
+  </div>
+</header>
+
+<div class="doc-wrap">
+
+  <nav class="toc">
+    <h2>المحتويات</h2>
+    <ol>
+      <li><a href="#theory">ما هو انتحال ARP (النظرية)</a></li>
+      <li><a href="#mapping">كيف تُطبَّق هذه النظرية في أداة NetSim الفعلية</a></li>
+      <li><a href="#fields">شرح كل حقل في لوحة هجوم ARP</a></li>
+      <li><a href="#validation">قواعد التحقق وحالات الرفض</a></li>
+      <li><a href="#stop">وظيفة الإيقاف / التراجع (Stop / Reverse)</a></li>
+      <li><a href="#evidence">قائمة الأدلة المرئية</a></li>
+      <li><a href="#example">مثال تطبيقي خطوة بخطوة</a></li>
+    </ol>
+  </nav>
+
+  <!-- SECTION 1 -->
+  <section id="theory">
+    <h2><span class="section-num">1</span>ما هو انتحال ARP (النظرية)</h2>
+
+    <p>
+      يمتلك كل جهاز على الشبكة المحلية عنوانين: <strong>عنوان IP</strong> (عنوان منطقي مثل
+      <span class="mono">192.168.1.10</span>، وقابل للتغيير) و<strong>عنوان MAC</strong> (عنوان فيزيائي محفور في
+      كرت الشبكة، مثل <span class="mono">AA:BB:CC:11:22:33</span>). عندما يريد جهاز إرسال بيانات إلى جهاز آخر على
+      نفس القطاع المحلي، يحتاج إلى معرفة عنوان MAC الخاص بالوجهة — فعنوان IP وحده لا يكفي على مستوى العتاد.
+    </p>
+    <p>
+      يحل <strong>بروتوكول تحليل العناوين (ARP)</strong> هذه المشكلة: يبثّ الجهاز سؤالًا "من يملك
+      <span class="mono">192.168.1.20</span>؟"، فيرد صاحب هذا العنوان بعنوان MAC الخاص به. ثم يخزّن الجهاز السائل
+      هذا الربط (IP ↔ MAC) في ذاكرة تخزين مؤقت محلية تُسمى <strong>جدول ARP</strong>، لتفادي تكرار السؤال في كل مرة.
+    </p>
+    <p>
+      يستغل <strong>انتحال ARP (أو تسميم ARP)</strong> حقيقة أن بروتوكول ARP لا يملك أي آلية توثيق — فالجهاز يقبل
+      أي رد ARP حتى لو لم يطلبه. يرسل المهاجم ردًا مزوّرًا يقول "أنا 192.168.1.20" مستخدمًا عنوان MAC الخاص به هو.
+      فتقوم الضحية باستبدال المدخل الصحيح في جدولها بهذا المدخل المزوّر، وابتداءً من تلك اللحظة تُسلَّم حركة
+      المرور الموجّهة إلى الجهاز الحقيقي إلى المهاجم بدلًا منه. هذا هو الأساس الذي يقوم عليه هجوم
+      <strong>الوسيط الخفي (Man-in-the-Middle / MITM)</strong>.
+    </p>
+
+    <h3>جدول ARP لدى الضحية: قبل وبعد التسميم</h3>
+    <div class="diagram">
+      <div class="diagram-col">
+        <div class="diagram-label">قبل الهجوم (صحيح)</div>
+        <div class="arp-table-box">
+          <div class="row-head"><div class="cell">عنوان IP</div><div class="cell">عنوان MAC</div></div>
+          <div class="row good"><div class="cell">192.168.1.1 (Router)</div><div class="cell">MAC-ROUTER-REAL</div></div>
+          <div class="row good"><div class="cell">192.168.1.20 (Server)</div><div class="cell">MAC-SERVER-REAL</div></div>
+        </div>
+      </div>
+      <div class="flow-arrow">⟸</div>
+      <div class="diagram-col">
+        <div class="diagram-label">بعد تسميم ARP</div>
+        <div class="arp-table-box">
+          <div class="row-head"><div class="cell">عنوان IP</div><div class="cell">عنوان MAC</div></div>
+          <div class="row good"><div class="cell">192.168.1.1 (Router)</div><div class="cell">MAC-ROUTER-REAL</div></div>
+          <div class="row bad"><div class="cell">192.168.1.20 (Server)</div><div class="cell">MAC-ATTACKER ⚠</div></div>
+        </div>
+      </div>
+    </div>
+
+    <h3>كيف تُعاد توجيه حركة المرور (مفهوم MITM)</h3>
+    <div class="diagram">
+      <div class="device-chip"><span class="dot dot-victim"></span> الضحية</div>
+      <div class="flow-arrow">⟸</div>
+      <div class="device-chip"><span class="dot dot-attacker"></span> المهاجم (في المنتصف)</div>
+      <div class="flow-arrow">⟸</div>
+      <div class="device-chip"><span class="dot dot-impersonated"></span> الوجهة الحقيقية</div>
+    </div>
+    <p>
+      بما أن جدول الضحية أصبح الآن يربط عنوان IP الخاص بالوجهة الحقيقية بعنوان MAC الخاص بالمهاجم، فإن كل حزمة
+      تحاول الضحية إرسالها إلى ذلك العنوان تُسلَّم فعليًا إلى كرت شبكة المهاجم أولًا. عندها يمكن للمهاجم قراءة
+      حركة المرور أو تعديلها أو مجرد تمريرها كما هي — وهذه القدرة على "الجلوس في منتصف المحادثة" هي بالضبط ما
+      يعنيه مصطلح MITM.
+    </p>
+  </section>
+
+  <!-- SECTION 2 -->
+  <section id="mapping">
+    <h2><span class="section-num">2</span>كيف تُطبَّق هذه النظرية في أداة NetSim الفعلية</h2>
+
+    <p>
+      يحتفظ NetSim بجدول ARP واحد لكل جهاز داخل المخزن المركزي للحالة (<code>arpTables</code>، مفهرَس بمعرّف
+      الجهاز). يُبنى كل جدول عبر الدالة <code>buildArpTable()</code> في ملف <code>arpSpoofing.js</code>، التي تجتاز
+      رسم الشبكة — قافزة بشفافية عبر أي سلسلة من الـSwitches، لأنها لا تملك عنوان IP ولا يُطلب منها الرد على ARP
+      مباشرة — لتملأ الجدول بكل الأزواج الحقيقية (IP ↔ MAC) لأي جهاز يحمل IP ويمكن الوصول إليه.
+    </p>
+
+    <h3>ما الذي يحدث فعليًا عند الضغط على "Trigger ARP Spoof"</h3>
+    <table>
+      <thead><tr><th>الخطوة</th><th>ما يحدث داخليًا</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>١. التحقق من الصحة</td>
+          <td>يقوم إجراء <code>triggerArpSpoof()</code> في المخزن بتنفيذ كل الفحوصات الموضحة في
+          <a href="#validation">القسم الرابع</a> قبل أي تعديل على الحالة.</td>
+        </tr>
+        <tr>
+          <td>٢. تعديل الحالة</td>
+          <td>تُعيد الدالة <code>simulateArpSpoof(arpTables, attackerId, victimId, impersonatedId)</code> كائن
+          <code>arpTables</code> جديدًا، حيث يُستبدَل مدخل <strong>الضحية</strong> الخاص بعنوان IP للجهاز
+          المنتحَل بعنوان MAC الخاص <strong>بالمهاجم</strong>. لا يُلمَس سوى صف جدول الضحية — يبقى جدول الجهاز
+          المنتحَل نفسه، وكل الأجهزة الأخرى، دون تغيير (ما لم يكن الوضع ثنائي الاتجاه مفعّلًا — انظر القسم الثالث).</td>
+        </tr>
+        <tr>
+          <td>٣. تسجيل الحدث في SIEM</td>
+          <td>يُضاف سجل إلى <code>arpAttackLog</code>، وتُرسِل الدالة <code>postSecurityEvent()</code> حدثًا من
+          نوع <code>arp_spoof</code> (أو <code>firewall_blocked_arp_spoof</code> إذا كان نوع الضحية محصّنًا) إلى
+          لوحة مركز العمليات الأمنية (SOC) في الخلفية.</td>
+        </tr>
+        <tr>
+          <td>٤. المؤثرات البصرية</td>
+          <td>
+            <ul style="margin:6px 26px 0 0; padding:0;">
+              <li>تظهر <strong>حلقة حمراء نابضة</strong> حول الجهاز المسمَّم على لوحة الرسم (عنصر Konva
+              <code>Circle</code> بلون الحدود <span class="mono">#e74c3c</span> وشفافية متحرّكة).</li>
+              <li>يُرسَم <strong>خط أحمر متقطع "خط الخداع"</strong> بين المهاجم والضحية (بإزاحة متحركة
+              <code>dashOffset</code> لإيحاء حركة مرور فعلية).</li>
+              <li>يُبرَز الصف المتأثر في جدول ARP الخاص بالضحية، المرئي عبر <strong>إعدادات الجهاز</strong>، بفئة
+              CSS باسم <code>table-row-poisoned</code>.</li>
+              <li>يظهر <strong>إشعار توست (Toast)</strong> يؤكد نجاح التسميم بلغة واضحة، مثل: <em>"victim device
+              PC-1 now believes MAC of attacker Attacker-1 belongs to device Server-1"</em>.</li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout info">
+      <div class="callout-title">نقطة معمارية مهمة</div>
+      <p>
+        لا شيء من هذه الآلية البصرية أو الخاصة بـSIEM مبني على "علم هجوم" منفصل — بل تُشتق جميعها لحظيًا من مقارنة
+        <code>arpTables</code> الحالي بجدول أساسي (baseline) يُعاد بناؤه من جديد في كل مرة
+        (<code>findActivePoisonings()</code>). فإذا تطابق الجدولان، لن يظهر أي شيء كمسمَّم مهما ضُغِط من أزرار.
+        هذا يضمن أن الحالة البصرية لا يمكن أبدًا أن تنحرف عن حالة التوجيه الفعلية.
+      </p>
+    </div>
+  </section>
+
+  <!-- SECTION 3 -->
+  <section id="fields">
+    <h2><span class="section-num">3</span>شرح كل حقل في لوحة هجوم ARP</h2>
+
+    <table>
+      <thead>
+        <tr><th>الحقل</th><th>الغرض</th><th>القيم المسموحة</th><th>القيم الممنوعة / المقيَّدة</th><th>السبب</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>جهاز المهاجم (Attacker device)</td>
+          <td>يحدد الجهاز الذي يرسل ردود ARP المزوّرة.</td>
+          <td><span class="badge badge-allowed">type = 'attacker'</span></td>
+          <td><span class="badge badge-forbidden">أي نوع آخر</span></td>
+          <td>
+            تُفرَض هذه القاعدة عبر الدالة <code>canBeAttacker()</code> داخل <code>triggerArpSpoof()</code> في
+            المخزن — فقط نوع الجهاز المخصَّص "Attacker" في مجموعة أدوات NetSim يمثّل فاعلًا قادرًا على صياغة حزم
+            مزوّرة.
+          </td>
+        </tr>
+        <tr>
+          <td>جهاز الضحية (Victim device)</td>
+          <td>الجهاز الذي سيُسمَّم جدول ARP الخاص به.</td>
+          <td><span class="badge badge-allowed">pc, server, router, firewall, attacker*</span></td>
+          <td><span class="badge badge-forbidden">switch</span></td>
+          <td>
+            تُصفَّى القائمة المنسدلة للضحية مسبقًا عبر <code>canBeVictim()</code> لاستبعاد <code>switch</code>
+            (وكذلك <code>attacker</code>، لأن جهاز المهاجم هو الفاعل نفسه، وليس هدفًا). <strong>أجهزة الـSwitch لا
+            تملك عنوان IP</strong> — فهي تعمل حصريًا على الطبقة الثانية (L2) وتُمرّر الإطارات بشفافية، لذا لا تملك
+            مدخلات في جدول ARP يمكن تسميمها، ولا يمكن أن تكون هدفًا لهجوم انتحال ARP.
+          </td>
+        </tr>
+        <tr>
+          <td>الجهاز المنتحَل (Impersonated device)</td>
+          <td>الجهاز الذي يزوّر المهاجم هويته (عنوان IP الخاص به).</td>
+          <td><span class="badge badge-allowed">pc, server, router, firewall</span></td>
+          <td><span class="badge badge-forbidden">switch, attacker</span></td>
+          <td>
+            تُصفَّى عبر <code>canBeImpersonated()</code>. تُستبعَد أجهزة الـSwitch لنفس سبب "عدم امتلاك IP"
+            المذكور أعلاه. أما استبعاد نوع <code>attacker</code> هنا فسببه تحديدًا أن هذا الجهاز نفسه يصبح، في
+            <strong>الوضع ثنائي الاتجاه (Bidirectional)</strong>، <em>هدفًا للكتابة</em> أيضًا في عملية التسميم —
+            إذ يُسمَّم جدول ARP الخاص به هو أيضًا — لذا يجب أن يكون جهازًا شرعيًا يحمل عنوان IP، لا جهاز المهاجم
+            نفسه.
+          </td>
+        </tr>
+        <tr>
+          <td>قاعدة التمايز (Distinctness rule)</td>
+          <td>يجب أن يكون المهاجم والضحية والجهاز المنتحَل ثلاثة أجهزة مختلفة تمامًا.</td>
+          <td><span class="badge badge-allowed">3 معرّفات أجهزة مختلفة</span></td>
+          <td><span class="badge badge-forbidden">تكرار أي جهاز في أكثر من دور</span></td>
+          <td>
+            يُفحَص هذا صراحةً داخل <code>triggerArpSpoof()</code> قبل تنفيذ أي منطق آخر. لا يمكن لجهاز أن يهاجم
+            نفسه، أو ينتحل هويته الخاصة، أو يكون ضحية لهويته المزوّرة الخاصة — فهذه التركيبات لا معنى منطقيًا لها
+            في سياق الهجوم.
+          </td>
+        </tr>
+        <tr>
+          <td>وضع التسميم (Spoofing Mode)</td>
+          <td>مفتاح للتبديل بين <strong>أحادي الاتجاه (One-way)</strong> و<strong>ثنائي الاتجاه — MITM كامل
+          (Bidirectional)</strong>.</td>
+          <td><span class="badge badge-allowed">One-way (افتراضي)</span> <span class="badge badge-allowed">Bidirectional</span></td>
+          <td>—</td>
+          <td>
+            انظر الشرح التفصيلي أدناه مباشرة.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>أحادي الاتجاه مقابل ثنائي الاتجاه — الفرق التقني الحقيقي</h3>
+    <p>
+      هذا الإعداد ليس شكليًا — إنه يغيّر عدد جداول ARP التي تُعدَّل وعدد أحداث SIEM التي تُولَّد:
+    </p>
+    <table>
+      <thead><tr><th></th><th>أحادي الاتجاه (One-way)</th><th>ثنائي الاتجاه — MITM كامل</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>الجداول التي تُسمَّم</td>
+          <td>يُعاد تعيين عنوان IP الخاص بالجهاز المنتحَل، داخل جدول <strong>الضحية</strong> فقط، إلى عنوان MAC
+          الخاص بالمهاجم.</td>
+          <td>يُسمَّم كل من جدول <strong>الضحية</strong> <em>و</em>جدول <strong>الجهاز المنتحَل</strong> معًا —
+          فيصبح كل طرف يعتقد أن عنوان MAC الخاص بالمهاجم يخص الطرف الآخر.</td>
+        </tr>
+        <tr>
+          <td>المعنى في الواقع</td>
+          <td>يستطيع المهاجم اعتراض حركة المرور <em>من</em> الضحية <em>إلى</em> الجهاز المنتحَل، لكن حركة المرور
+          العائدة تبقى تسير بشكل طبيعي.</td>
+          <td>يتموضع المهاجم في منتصف <strong>كلا الاتجاهين</strong> من المحادثة — وهذا هو التعريف الكلاسيكي
+          الكامل لهجوم الوسيط الخفي (MITM).</td>
+        </tr>
+        <tr>
+          <td>أحداث SIEM المسجَّلة</td>
+          <td>حدث واحد من نوع <code>arp_spoof</code>.</td>
+          <td><strong>حدثان منفصلان</strong> من نوع <code>arp_spoof</code> — واحد لكل اتجاه — لأن كل اتجاه يمثّل
+          تدفقًا مستقلًا من حزم ARP مزوّرة. وهذا يحاكي بالضبط كيفية عمل أدوات حقيقية ثنائية الاتجاه مثل
+          <code>arpspoof</code> أو <code>ettercap</code>، التي ترسل فعليًا تدفقين منفصلين من ردود ARP المزوّرة،
+          واحدًا لكل طرف.</td>
+        </tr>
+        <tr>
+          <td>تحقق إضافي</td>
+          <td>—</td>
+          <td>يجب أن يكون المهاجم <em>أيضًا</em> على نفس قطاع الشبكة (L2) الخاص بالجهاز المنتحَل (يُنفَّذ فحص
+          الجوار المباشر مرة ثانية)، لأن المهاجم يحتاج الآن لحقن إطارات مزوّرة على كلا الجانبين.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout verified">
+      <div class="callout-title">تفصيل تنفيذي يستحق المعرفة</div>
+      <p>
+        في الوضع ثنائي الاتجاه، عملية التسميم "العكسية" هي حرفيًا استدعاء
+        <code>simulateArpSpoof(arpTables, attackerId, impersonatedId, victimId)</code> — نفس الدالة المستخدمة
+        للاتجاه الأمامي، فقط مع تبديل موقعي الضحية والجهاز المنتحَل. لهذا السبب يصف التعليق البرمجي في
+        <code>topologyStore.js</code> هذه العملية بأنها "تدفقان مستقلان من حزم ARP مزوّرة"، وليست عملية واحدة
+        مدمجة.
+      </p>
+    </div>
+  </section>
+
+  <!-- SECTION 4 -->
+  <section id="validation">
+    <h2><span class="section-num">4</span>قواعد التحقق وحالات الرفض</h2>
+
+    <table>
+      <thead><tr><th>حالة الرفض</th><th>أين يتم فرضها</th><th>مثال ملموس</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>اختيار جهاز Switch كضحية أو كجهاز منتحَل</td>
+          <td>تصفية القائمة المنسدلة (<code>canBeVictim</code> / <code>canBeImpersonated</code> في
+          <code>attackRoles.js</code>) — الخيار <strong>لا يُعرَض أصلًا</strong> في القائمة، لذا لا يمكن اختياره
+          إطلاقًا.</td>
+          <td>عند فتح قائمة "Victim device" في طوبولوجيا تحتوي <code>Switch-1</code> و<code>PC-1</code>
+          و<code>Server-1</code>، لا تظهر سوى <code>PC-1</code> و<code>Server-1</code> كخيارات.</td>
+        </tr>
+        <tr>
+          <td>استخدام نفس الجهاز في أكثر من دور واحد</td>
+          <td>داخل <code>triggerArpSpoof()</code> في <code>topologyStore.js</code>، قبل أي تعديل على الجداول.</td>
+          <td>اختيار <code>Attacker-1</code> كمهاجم وكجهاز منتحَل في آن واحد ← يُرفَض برسالة
+          <em>"attacker, victim, and impersonated device must all be different"</em>، تظهر ضمن الاستمارة مباشرة.</td>
+        </tr>
+        <tr>
+          <td>المهاجم ليس على نفس قطاع L2 الخاص بالضحية</td>
+          <td>الدالة <code>isAttackerOnSameSegment()</code> في <code>pingRouting.js</code>، تُستدعى مقابل
+          <strong>الجار الفيزيائي المباشر</strong> للضحية (<code>getImmediateNeighborId</code>) — ويتم الفحص
+          <strong>قبل</strong> استدعاء <code>simulateArpSpoof()</code> إطلاقًا.</td>
+          <td>مهاجم متصل بشبكة <code>Router-A</code> بينما تقع الضحية خلف <code>Router-B</code> منفصل تمامًا، بلا
+          أي Switch أو قطاع مشترك بينهما ← يُرفَض برسالة <em>"Attacker-1 is not on the same local network segment
+          as PC-1"</em>، ويبقى جدول ARP دون أي تعديل إطلاقًا.</td>
+        </tr>
+        <tr>
+          <td>المهاجم ليس على نفس قطاع الجهاز المنتحَل (في الوضع ثنائي الاتجاه فقط)</td>
+          <td>نفس الدالة، تُستدعى مرة ثانية مقابل جار الجهاز المنتحَل.</td>
+          <td>هجوم أحادي الاتجاه قد ينجح في هذه الطوبولوجيا، لكن التبديل إلى الوضع ثنائي الاتجاه مع وجود الجهاز
+          المنتحَل على قطاع مختلف ← يُرفَض قبل تعديل أي جدول، حتى جدول الضحية نفسه.</td>
+        </tr>
+        <tr>
+          <td>جهاز Firewall كضحية (أو كجهاز منتحَل، في الوضع ثنائي الاتجاه)</td>
+          <td>الدالة <code>isImmuneToAttack(deviceType, 'arp_spoof')</code> في <code>deviceCapabilities.js</code>
+          — حاليًا فقط نوع <code>firewall</code> مدرَج في مجموعة الأنواع المحصَّنة.</td>
+          <td>استهداف جهاز <code>Firewall-1</code>: <strong>لا يُرفَض الهجوم بالكامل</strong> — بل يُسجَّل الحدث
+          كـ<code>firewall_blocked_arp_spoof</code> بدلًا من <code>arp_spoof</code>، ولا يُعدَّل جدول ARP فعليًا
+          للطرف المحصَّن (يبقى <code>arpTables</code> دون تغيير، ولا يظهر أي مؤشر تسميم بصري).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>لماذا يحدث فحص L2 <em>قبل</em> أي كتابة على الجدول</h3>
+    <div class="callout warn">
+      <div class="callout-title">مبرر التصميم</div>
+      <p>
+        بدون هذا الفحص، كانت الأداة قد تُظهر حلقة "تم التسميم بنجاح" النابضة وخط الخداع المتقطع حتى في حالة كون
+        الهجوم <strong>عديم الأثر التوجيهي الفعلي تمامًا</strong> — لأن المهاجم الحقيقي لا يستطيع فيزيائيًا حقن
+        إطارات ARP مزوّرة على قطاع بث غير متصل به. التحقق من الجوار أولًا يحافظ على مصداقية المؤثرات البصرية: إن
+        رأيت مؤشرات التسميم، فهذا يعني أن منطق "تسليم الحزم" الفعلي (المستخدَم في ميزة الـPing متعددة القفزات)
+        سيمرّ فعلًا عبر المهاجم أيضًا.
+      </p>
+    </div>
+
+    <div class="callout verified">
+      <div class="callout-title">تم التحقق من نجاحها — التوصيل المباشر بين المهاجم والضحية</div>
+      <p>
+        أبسط طوبولوجيا ممكنة — جهاز مهاجم متصل <strong>مباشرة</strong> بالضحية دون أي Switch وسيط — مدعومة صراحةً
+        وتم التحقق منها أثناء التطوير. ولأن الدالة <code>isAttackerOnSameSegment()</code> تعتبر الرابط المباشر (أو
+        حالة الجهاز نفسه البديهية) بمثابة "نفس القطاع"، فإن هذا السيناريو يجتاز التحقق ويُسمَّم جدول الضحية بشكل
+        صحيح. كانت نسخة سابقة من هذا الفحص تتعرّف فقط على الجوار <em>عبر</em> Switch، وكانت ترفض التوصيل المباشر
+        خطأً؛ وقد تم إصلاح هذا الخلل منذ ذلك الحين، وهو مغطّى الآن باختبارات في <code>pingRouting.test.js</code>.
+      </p>
+    </div>
+  </section>
+
+  <!-- SECTION 5 -->
+  <section id="stop">
+    <h2><span class="section-num">5</span>وظيفة الإيقاف / التراجع (Stop / Reverse)</h2>
+
+    <p>
+      عند الضغط على زر <strong>"Stop Spoofing"</strong>، يُستدعى الإجراء
+      <code>stopArpSpoof(victimDeviceId, impersonatedDeviceId)</code> في المخزن، والذي بدوره يستدعي الدالة
+      <code>clearArpPoison()</code> من ملف <code>arpSpoofing.js</code>.
+    </p>
+
+    <div class="card">
+      <h3 style="margin-top:0;">ما الذي تُستعاد قيمته فعليًا</h3>
+      <p>
+        لا تكتفي الدالة <code>clearArpPoison()</code> بإخفاء المؤشرات البصرية فقط — بل تكتب
+        <strong>عنوان MAC الحقيقي والأصلي للجهاز المنتحَل</strong> مرة أخرى داخل مدخل جدول الضحية الخاص بذلك
+        العنوان، عاكسةً تمامًا ما فعلته <code>simulateArpSpoof()</code>. يعود جدول الضحية بذلك ليطابق الجدول
+        الأساسي (baseline) المُحسوب حديثًا من <code>buildArpTable()</code>، وهذا بالضبط ما يجعل
+        <code>findActivePoisonings()</code> يتوقف عن الإبلاغ عن التسميم — فتختفي الحلقة، والخط المتقطع، والصف
+        المُبرز، كنتيجة مباشرة لذلك، لا بسبب خطوة منفصلة "لإخفاء المؤثرات البصرية".
+      </p>
+    </div>
+
+    <div class="callout verified">
+      <div class="callout-title">آمن حتى للهجمات أحادية الاتجاه</div>
+      <p>
+        يستدعي <code>stopArpSpoof()</code> الدالة <code>clearArpPoison()</code> بشكل غير مشروط في
+        <strong>كلا الاتجاهين</strong> — مرة لـ(الضحية، المنتحَل) ومرة لـ(المنتحَل، الضحية) — بغض النظر عن الوضع
+        الذي استُخدم لإطلاق الهجوم. في حالة الهجوم أحادي الاتجاه، يكون الاستدعاء الثاني ببساطة بلا أثر (no-op):
+        لم يُلمَس جدول الجهاز المنتحَل أصلًا، لذا فإن "استعادة" مدخله الصحيح أصلًا لا تغيّر شيئًا. هذا يعني أن
+        نفس زر الإيقاف يعمل بنفس الطريقة وبأمان سواء كان الهجوم أحادي الاتجاه أو ثنائي الاتجاه.
+      </p>
+    </div>
+  </section>
+
+  <!-- SECTION 6 -->
+  <section id="evidence">
+    <h2><span class="section-num">6</span>قائمة الأدلة المرئية</h2>
+    <p>كل مكان يمكن فيه للمستخدم (أو لعضو لجنة مناقشة) التحقق بشكل مستقل من أن التسميم فعّال حاليًا:</p>
+
+    <div class="checklist-grid">
+      <div class="check-item">
+        <div class="icon">
+          <div class="ring-demo">●</div>
+        </div>
+        <div class="txt"><strong>حلقة حمراء نابضة</strong>تُرسَم حول الجهاز المسمَّم على لوحة الرسم (عنصر Konva <code>Circle</code> بشفافية متحركة).</div>
+      </div>
+      <div class="check-item">
+        <div class="icon">┄┄</div>
+        <div class="txt"><strong>خط أحمر متقطع</strong>خط خداع متحرك بين المهاجم والضحية على لوحة الرسم.</div>
+      </div>
+      <div class="check-item">
+        <div class="icon">🗂</div>
+        <div class="txt"><strong>إبراز الصف المسمَّم</strong>في إعدادات الجهاز ← جدول ARP، يحصل صف عنوان IP المتأثر على نمط <code>table-row-poisoned</code>.</div>
+      </div>
+      <div class="check-item">
+        <div class="icon">📊</div>
+        <div class="txt"><strong>عدّاد سطر الحالة</strong>يعرض رأس لوحة Attacks &amp; Tools مثلًا "2 active poisoned entries" عبر <code>activePoisoningCount</code>.</div>
+      </div>
+      <div class="check-item">
+        <div class="icon">🔔</div>
+        <div class="txt"><strong>إشعار توست</strong>تأكيد بلغة واضحة عند التنفيذ، مثل "victim device PC-1 now believes MAC of attacker...".</div>
+      </div>
+      <div class="check-item">
+        <div class="icon">🛡</div>
+        <div class="txt"><strong>حدث SIEM</strong>إرسال <code>arp_spoof</code> (أو <code>firewall_blocked_arp_spoof</code>) إلى لوحة مركز العمليات الأمنية (SOC) في الخلفية للربط بين الأحداث.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 7 -->
+  <section id="example">
+    <h2><span class="section-num">7</span>مثال تطبيقي خطوة بخطوة</h2>
+
+    <p>الطوبولوجيا: <code>Attacker-1</code> — <code>Switch-1</code> — <code>PC-1</code> (الضحية)، مع اتصال
+    <code>Server-1</code> (الجهاز المنتحَل) أيضًا بـ<code>Switch-1</code>.</p>
+
+    <div class="topo-diagram">
+      <div class="topo-node attacker">
+        <div class="box">🧑‍💻</div>
+        <div class="name">Attacker-1</div>
+        <div class="role">مهاجم</div>
+      </div>
+      <div class="topo-link"></div>
+      <div class="topo-node switch">
+        <div class="box">⬡</div>
+        <div class="name">Switch-1</div>
+        <div class="role">مرحّل L2</div>
+      </div>
+      <div class="topo-link"></div>
+      <div class="topo-node victim">
+        <div class="box">🖥</div>
+        <div class="name">PC-1</div>
+        <div class="role">ضحية</div>
+      </div>
+      <div class="topo-link"></div>
+      <div class="topo-node impersonated">
+        <div class="box">🗄</div>
+        <div class="name">Server-1</div>
+        <div class="role">منتحَل</div>
+      </div>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <div class="step-title">إعداد الهجوم</div>
+        جهاز المهاجم = <code>Attacker-1</code>، جهاز الضحية = <code>PC-1</code>، الجهاز المنتحَل =
+        <code>Server-1</code>، الوضع = One-way. الأجهزة الثلاثة مختلفة، وليس أي منها Switch، ويشترك
+        <code>Attacker-1</code> مع <code>PC-1</code> في <code>Switch-1</code> — لذا يجتاز التحقق بنجاح.
+      </li>
+      <li>
+        <div class="step-title">الضغط على "Trigger ARP Spoof"</div>
+        تستبدل <code>simulateArpSpoof()</code> قيمة <code>arpTables['PC-1']['192.168.1.20']</code> (عنوان IP
+        الخاص بـServer-1) بعنوان MAC الخاص بـ<code>Attacker-1</code>. يبقى جدول <code>Server-1</code> نفسه دون
+        تعديل (وضع أحادي الاتجاه). يُسجَّل حدث واحد من نوع <code>arp_spoof</code> في SIEM.
+      </li>
+      <li>
+        <div class="step-title">ما يتغيّر بصريًا</div>
+        تظهر حلقة حمراء نابضة حول <code>PC-1</code>؛ ويتصل خط أحمر متقطع بين <code>Attacker-1</code> و
+        <code>PC-1</code>؛ ويُبرَز صف Server-1 في جدول ARP ضمن إعدادات جهاز <code>PC-1</code>؛ ويظهر إشعار توست
+        يؤكد التسميم؛ ويعرض سطر حالة لوحة Attacks "1 active poisoned entry".
+      </li>
+      <li>
+        <div class="step-title">تنفيذ Ping من PC-1 إلى Server-1</div>
+        تستدعي <code>buildPingRoute()</code> الدالة <code>findMitmRedirect()</code>، التي تلاحظ أن عنوان MAC
+        المخزَّن لدى <code>PC-1</code> لعنوان IP الخاص بـServer-1 لا يطابق عنوان MAC الحقيقي لـServer-1، فتحدّد
+        صاحب عنوان MAC غير المطابق على أنه <code>Attacker-1</code>، وتتأكد من أنه على نفس القطاع. تُظهر نتيجة
+        الـPing أن المسار مرّ <strong>عبر المهاجم</strong> (<code>PC-1 → Switch-1 → Attacker-1 → Switch-1 →
+        Server-1</code>) بدلًا من المسار المباشر — دليل على أن الاعتراض حقيقي وظيفيًا، لا مجرد مظهر بصري.
+      </li>
+      <li>
+        <div class="step-title">الضغط على "Stop Spoofing"</div>
+        تستعيد <code>clearArpPoison()</code> قيمة <code>arpTables['PC-1']['192.168.1.20']</code> إلى عنوان MAC
+        الحقيقي لـ<code>Server-1</code>. تختفي الحلقة والخط المتقطع والصف المُبرز فورًا لأن
+        <code>findActivePoisonings()</code> يرى الآن أن الجدول يطابق الأساس (baseline) من جديد. تسلك عملية Ping
+        لاحقة من <code>PC-1</code> إلى <code>Server-1</code> المسار المباشر الطبيعي.
+      </li>
+    </ol>
+  </section>
+
+  <footer>
+    NetSim &mdash; دليل هجوم انتحال ARP &middot; مُستخلَص من الشيفرة الفعلية الحالية في
+    <span class="mono">arpSpoofing.js</span>، و<span class="mono">attackRoles.js</span>، و
+    <span class="mono">pingRouting.js</span>، و<span class="mono">topologyStore.js</span>، و
+    <span class="mono">AttackPanel.jsx</span>.
+  </footer>
+
+</div>
+</body>
+</html>

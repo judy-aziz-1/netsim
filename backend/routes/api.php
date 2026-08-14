@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/network-topologies', [NetworkTopologyController::class, 'index']);
 Route::post('/network-topologies', [NetworkTopologyController::class, 'store']);
+Route::delete('/network-topologies/{id}', [NetworkTopologyController::class, 'destroy']);
 
 Route::get('/security-events', [SecurityEventController::class, 'index']);
 Route::post('/security-events', [SecurityEventController::class, 'store']);

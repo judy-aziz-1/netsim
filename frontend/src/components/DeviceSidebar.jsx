@@ -9,7 +9,7 @@ const DEVICE_DEFS = [
   { type: 'attacker', label: 'Attacker', glyph: '!', iconClass: 'ns-device-icon-attacker', x: 600, y: 100 },
 ];
 
-function DeviceSidebar() {
+function DeviceSidebar({ onOpenSaveTopology, onOpenLoadTopology }) {
   const addDevice = useTopologyStore((state) => state.addDevice);
   const clearTopology = useTopologyStore((state) => state.clearTopology);
 
@@ -34,6 +34,12 @@ function DeviceSidebar() {
             <span>{device.label}</span>
           </button>
         ))}
+        <button type="button" className="ns-clear-btn" onClick={onOpenSaveTopology}>
+          Save Topology
+        </button>
+        <button type="button" className="ns-clear-btn" onClick={onOpenLoadTopology}>
+          Load Topology
+        </button>
         <button type="button" className="ns-clear-btn" onClick={handleClear}>
           Clear
         </button>

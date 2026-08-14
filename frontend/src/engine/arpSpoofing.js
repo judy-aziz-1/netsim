@@ -75,7 +75,15 @@ export function simulateArpSpoof(arpTables, attackerDeviceId, victimDeviceId, im
   };
 }
 
-export function clearArpPoison(arpTables, victimDeviceId, impersonatedDeviceId) {
+// Unlike DNS tables, buildArpTable normally seeds a device's table with a real
+// baseline value for every neighbor actually on its segment — so restoring a
+// poisoned key to that neighbor's real MAC is usually correct. But a poisoned
+// key can be planted outside the true baseline (e.g. if validation upstream
+// allowed it, or the topology changed between trigger and stop), and in that
+// case there's no real baseline value to restore it to — the correct inverse
+// is to delete the key entirely, exactly as clearDnsPoison already does for
+// its own (always-baseline-less) keys.
+export function clearArpPoison(arpTables, victimDeviceId, impersonatedDeviceId, devices, links) {
   const impersonatedSelf = arpTables[impersonatedDeviceId]?._self;
   const victimTable = arpTables[victimDeviceId];
 
@@ -83,13 +91,19 @@ export function clearArpPoison(arpTables, victimDeviceId, impersonatedDeviceId) 
     return arpTables;
   }
 
-  return {
-    ...arpTables,
-    [victimDeviceId]: {
-      ...victimTable,
-      [impersonatedSelf.ip]: impersonatedSelf.mac,
-    },
-  };
+  const updatedTable = { ...victimTable };
+  const victimBaseline = buildArpTable(devices, links)[victimDeviceId];
+  const wasInBaseline = Boolean(
+    victimBaseline && Object.prototype.hasOwnProperty.call(victimBaseline, impersonatedSelf.ip),
+  );
+
+  if (wasInBaseline) {
+    updatedTable[impersonatedSelf.ip] = impersonatedSelf.mac;
+  } else {
+    delete updatedTable[impersonatedSelf.ip];
+  }
+
+  return { ...arpTables, [victimDeviceId]: updatedTable };
 }
 
 export function isArpTablePoisoned(originalTable, currentTable) {
@@ -138,4 +152,37 @@ export function findActivePoisonings(devices, links, arpTables) {
   });
 
   return results;
+}
+
+export function buildArpSpoofToastMessage({
+  bidirectional,
+  forwardBlocked,
+  reverseBlocked,
+  attackerName,
+  victimName,
+  impersonatedName,
+}) {
+  if (!forwardBlocked && !(bidirectional && reverseBlocked)) {
+    return {
+      message: `victim device ${victimName} now believes MAC of attacker ${attackerName} belongs to device ${impersonatedName}`,
+      type: 'success',
+    };
+  }
+
+  if (!bidirectional || (forwardBlocked && reverseBlocked)) {
+    const immuneNames = bidirectional ? `both ${victimName} and ${impersonatedName}` : victimName;
+    return {
+      message: `⚠ Attack blocked: ${immuneNames} ${bidirectional ? 'are' : 'is'} immune to ARP spoofing (firewall protection)`,
+      type: 'error',
+    };
+  }
+
+  const blockedName = forwardBlocked ? victimName : impersonatedName;
+  const otherName = forwardBlocked ? impersonatedName : victimName;
+  const direction = forwardBlocked ? 'reverse' : 'forward';
+
+  return {
+    message: `⚠ Attack partially blocked: ${blockedName} is immune to ARP spoofing (firewall protection) — ${otherName} was poisoned in the ${direction} direction`,
+    type: 'error',
+  };
 }

@@ -3,6 +3,36 @@ const BASE_URL = 'http://127.0.0.1:8000/api';
 export async function getTopologies() {
   const res = await fetch(`${BASE_URL}/network-topologies`);
 
+  if (!res.ok) {
+    throw new Error(`getTopologies failed with status ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function createNetworkTopology(name, data) {
+  const res = await fetch(`${BASE_URL}/network-topologies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, data }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`createNetworkTopology failed with status ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function deleteNetworkTopology(id) {
+  const res = await fetch(`${BASE_URL}/network-topologies/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!res.ok) {
+    throw new Error(`deleteNetworkTopology failed with status ${res.status}`);
+  }
+
   return res.json();
 }
 

@@ -7,6 +7,7 @@ import {
   describeLinkTypes,
   describeLinkDetail,
   isAttackerOnSameSegment,
+  isDeviceOnRealSegment,
 } from './pingRouting';
 import { buildArpTable, simulateArpSpoof } from './arpSpoofing';
 import { buildDnsTable, simulateDnsPoison } from './dnsPoisoning';
@@ -71,9 +72,8 @@ describe('findPath', () => {
 describe('isAttackerOnSameSegment', () => {
   it('treats a direct wire from the reference device to the attacker itself as adjacent', () => {
     // When the victim's only/immediate neighbor IS the attacker (no switch in
-    // between), getImmediateNeighborId(victim, links) resolves to the attacker's
-    // own id. That is the simplest possible form of L2 adjacency and must pass,
-    // not fail for lack of a (nonsensical) self-referencing link.
+    // between), that is the simplest possible form of L2 adjacency and must
+    // pass, not fail for lack of a (nonsensical) self-referencing link.
     expect(isAttackerOnSameSegment('attacker1', 'attacker1', [])).toBe(true);
   });
 
@@ -87,6 +87,65 @@ describe('isAttackerOnSameSegment', () => {
     const links = [link('l1', 'switch1', 'attacker1')];
 
     expect(isAttackerOnSameSegment('attacker1', 'switch1', links)).toBe(true);
+  });
+});
+
+describe('isDeviceOnRealSegment', () => {
+  it('returns true for the same device (self case)', () => {
+    expect(isDeviceOnRealSegment('router1', 'router1', [], [])).toBe(true);
+  });
+
+  it('finds same-segment membership via a switch chain', () => {
+    const devices = [device('pc1', 'pc'), device('switch1', 'switch'), device('attacker1', 'attacker')];
+    const links = [link('l1', 'pc1', 'switch1'), link('l2', 'switch1', 'attacker1')];
+
+    expect(isDeviceOnRealSegment('attacker1', 'pc1', devices, links)).toBe(true);
+  });
+
+  it('finds same-segment membership via a bare direct link with no switch', () => {
+    const devices = [device('router1', 'router'), device('attacker1', 'attacker')];
+    const links = [link('l1', 'router1', 'attacker1')];
+
+    expect(isDeviceOnRealSegment('attacker1', 'router1', devices, links)).toBe(true);
+  });
+
+  it('returns false across a router hop (no shared segment)', () => {
+    const devices = [device('pc1', 'pc'), device('router1', 'router'), device('router2', 'router'), device('pc2', 'pc')];
+    const links = [link('l1', 'pc1', 'router1'), link('l2', 'router1', 'router2'), link('l3', 'router2', 'pc2')];
+
+    expect(isDeviceOnRealSegment('pc2', 'pc1', devices, links)).toBe(false);
+  });
+
+  it('is independent of which of a multi-linked device\'s links was created first', () => {
+    // router1 has two links: one to switch1 (its real local segment, where
+    // sharedDevice lives) and one to router2 (a different segment, where
+    // attacker1 lives). The correct answer — attacker1 is NOT on router1's
+    // real segment — must hold no matter which link was added first.
+    const devices = [
+      device('router1', 'router'),
+      device('router2', 'router'),
+      device('attacker1', 'attacker'),
+      device('switch1', 'switch'),
+      device('sharedDevice', 'pc'),
+    ];
+
+    const switchFirstLinks = [
+      link('l1', 'router1', 'switch1'),
+      link('l2', 'switch1', 'sharedDevice'),
+      link('l3', 'router1', 'router2'),
+      link('l4', 'attacker1', 'router2'),
+    ];
+    const routerFirstLinks = [
+      link('l1', 'router1', 'router2'),
+      link('l2', 'attacker1', 'router2'),
+      link('l3', 'router1', 'switch1'),
+      link('l4', 'switch1', 'sharedDevice'),
+    ];
+
+    for (const links of [switchFirstLinks, routerFirstLinks]) {
+      expect(isDeviceOnRealSegment('attacker1', 'router1', devices, links)).toBe(false);
+      expect(isDeviceOnRealSegment('sharedDevice', 'router1', devices, links)).toBe(true);
+    }
   });
 });
 
@@ -217,6 +276,109 @@ describe('buildPingRoute', () => {
       reason: 'no_path',
       message: 'No path found - devices not connected',
     });
+  });
+
+  it('one-way ARP attack: reply leg goes direct, not through the attacker (regression)', () => {
+    const devices = [
+      device('pc1', 'pc'),
+      device('switch1', 'switch'),
+      device('router1', 'router'),
+      device('attacker1', 'attacker'),
+    ];
+    const links = [
+      link('l1', 'pc1', 'switch1'),
+      link('l2', 'switch1', 'router1'),
+      link('l3', 'switch1', 'attacker1'),
+    ];
+    // One-way: attacker1 poisons pc1's (victim) table only, impersonating router1.
+    const arpTables = simulateArpSpoof(buildArpTable(devices, links), 'attacker1', 'pc1', 'router1');
+    const dnsTables = buildDnsTable(devices);
+
+    const route = buildPingRoute('pc1', 'router1', devices, links, arpTables, dnsTables);
+
+    expect(route.mitm).toBe(true);
+    expect(route.path).toContain('attacker1');
+
+    expect(route.reverseMitm).toBe(false);
+    expect(route.reversePath).not.toContain('attacker1');
+    expect(route.reversePath).toEqual(findPath(devices, links, 'router1', 'pc1'));
+  });
+
+  it('bidirectional ARP attack: both legs redirect through the attacker', () => {
+    const devices = [
+      device('pc1', 'pc'),
+      device('switch1', 'switch'),
+      device('router1', 'router'),
+      device('attacker1', 'attacker'),
+    ];
+    const links = [
+      link('l1', 'pc1', 'switch1'),
+      link('l2', 'switch1', 'router1'),
+      link('l3', 'switch1', 'attacker1'),
+    ];
+    let arpTables = simulateArpSpoof(buildArpTable(devices, links), 'attacker1', 'pc1', 'router1');
+    arpTables = simulateArpSpoof(arpTables, 'attacker1', 'router1', 'pc1');
+    const dnsTables = buildDnsTable(devices);
+
+    const route = buildPingRoute('pc1', 'router1', devices, links, arpTables, dnsTables);
+
+    expect(route.mitm).toBe(true);
+    expect(route.path).toContain('attacker1');
+    expect(route.reverseMitm).toBe(true);
+    expect(route.reversePath).toContain('attacker1');
+  });
+
+  it('impersonated-initiated ping under a one-way attack still shows no MITM on the forward leg (regression)', () => {
+    const devices = [
+      device('pc1', 'pc'),
+      device('switch1', 'switch'),
+      device('router1', 'router'),
+      device('attacker1', 'attacker'),
+    ];
+    const links = [
+      link('l1', 'pc1', 'switch1'),
+      link('l2', 'switch1', 'router1'),
+      link('l3', 'switch1', 'attacker1'),
+    ];
+    const arpTables = simulateArpSpoof(buildArpTable(devices, links), 'attacker1', 'pc1', 'router1');
+    const dnsTables = buildDnsTable(devices);
+
+    // Ping initiated FROM the impersonated device (router1) TO the victim (pc1).
+    const route = buildPingRoute('router1', 'pc1', devices, links, arpTables, dnsTables);
+
+    expect(route.mitm).toBe(false);
+    // Not a bug: the "reverse" of *this* call is pc1->router1, and pc1's table
+    // genuinely is poisoned in one-way mode, so this is correct new information,
+    // not a regression.
+    expect(route.reverseMitm).toBe(true);
+  });
+
+  it('DNS poisoning: reply leg always goes direct (no bidirectional concept for DNS)', () => {
+    const devices = [
+      device('pc1', 'pc'),
+      device('switch1', 'switch'),
+      device('router1', 'router'),
+      device('attacker1', 'attacker'),
+    ];
+    const links = [
+      link('l1', 'pc1', 'switch1'),
+      link('l2', 'switch1', 'router1'),
+      link('l3', 'switch1', 'attacker1'),
+    ];
+    const arpTables = buildArpTable(devices, links);
+    const dnsTables = simulateDnsPoison(
+      buildDnsTable(devices),
+      'attacker1',
+      'pc1',
+      `${devices[2].name}.local`,
+      devices[3].ip,
+    );
+
+    const route = buildPingRoute('pc1', 'router1', devices, links, arpTables, dnsTables);
+
+    expect(route.mitm).toBe(true);
+    expect(route.via).toBe('dns');
+    expect(route.reverseMitm).toBe(false);
   });
 });
 

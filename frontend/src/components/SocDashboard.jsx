@@ -1,16 +1,27 @@
-import { useEffect, useState } from 'react';
-import {
-  createIncidentTicket,
-  getIncidentTicket,
-  getIncidentTickets,
-  updateTicketStatus,
-} from '../api/client';
+import { useEffect, useMemo, useState } from 'react';
+import { createIncidentTicket, getIncidentTickets, updateTicketStatus } from '../api/client';
+import { computeTicketStats, formatRelativeTime } from '../engine/socStats';
 
-const STATUS_BADGE_CLASS = {
-  open: 'badge-open',
-  investigating: 'badge-investigating',
-  closed: 'badge-closed',
+const STATUS_ORDER = ['open', 'investigating', 'closed'];
+
+const STATUS_COLOR_VAR = {
+  open: 'var(--danger)',
+  investigating: 'var(--warning)',
+  closed: 'var(--success)',
 };
+
+const STATUS_LABEL = {
+  open: 'OPEN',
+  investigating: 'INVESTIGATING',
+  closed: 'CLOSED',
+};
+
+const FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'open', label: 'Open' },
+  { id: 'investigating', label: 'Investigating' },
+  { id: 'closed', label: 'Closed' },
+];
 
 function SocDashboard({ onCountUpdate }) {
   const [tickets, setTickets] = useState([]);
@@ -18,8 +29,7 @@ function SocDashboard({ onCountUpdate }) {
   const [error, setError] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedTicketId, setSelectedTicketId] = useState(null);
-  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('all');
 
   const loadTickets = () => {
     setError(null);
@@ -37,15 +47,6 @@ function SocDashboard({ onCountUpdate }) {
     loadTickets();
   }, []);
 
-  useEffect(() => {
-    if (!selectedTicketId) {
-      setSelectedTicket(null);
-      return;
-    }
-
-    getIncidentTicket(selectedTicketId).then(setSelectedTicket).catch(console.error);
-  }, [selectedTicketId, tickets]);
-
   const handleSubmit = () => {
     createIncidentTicket(title, description)
       .then(() => {
@@ -56,8 +57,8 @@ function SocDashboard({ onCountUpdate }) {
       .catch(console.error);
   };
 
-  const handleStatusChange = (status) => {
-    updateTicketStatus(selectedTicketId, status, '')
+  const handleStatusChange = (ticketId, status) => {
+    updateTicketStatus(ticketId, status, '')
       .then(() => loadTickets())
       .catch(console.error);
   };
@@ -70,91 +71,136 @@ function SocDashboard({ onCountUpdate }) {
     onCountUpdate?.(openTicketsCount);
   }, [tickets, onCountUpdate]);
 
+  const stats = useMemo(() => computeTicketStats(tickets), [tickets]);
+
+  const filteredTickets = useMemo(() => {
+    const safeTickets = Array.isArray(tickets) ? tickets : [];
+    if (activeFilter === 'all') return safeTickets;
+    return safeTickets.filter((ticket) => ticket.status === activeFilter);
+  }, [tickets, activeFilter]);
+
   return (
     <div>
-      <div className="field-row">
-        <button className="btn" onClick={loadTickets}>Refresh</button>
+      <div className="field-row" style={{ justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ns-text)' }}>SOC Tickets</div>
+        <button className="siem-refresh-btn" onClick={loadTickets}>Refresh</button>
       </div>
 
       {error && <p className="error-text">{error}</p>}
 
-      <div className="section">
-        <h2>New Ticket</h2>
-        <div className="field-row">
-          <input
-            type="text"
-            placeholder="Title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-        </div>
-        <div className="field-row">
-          <textarea
-            placeholder="Description"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </div>
-        <div className="field-row">
-          <button className="btn" onClick={handleSubmit}>Submit</button>
-        </div>
-      </div>
-
-      <div className="section">
-        <h2>Tickets</h2>
-
-        {loading ? (
-          <p className="loading-text">Loading...</p>
-        ) : (
-          Array.isArray(tickets) && tickets.map((ticket) => (
-            <div
-              key={ticket.id}
-              className="card clickable"
-              onClick={() => setSelectedTicketId(ticket.id)}
-            >
-              <div className="card-header">
-                <span>{ticket.title}</span>
-                <span className={`badge ${STATUS_BADGE_CLASS[ticket.status] ?? ''}`}>
-                  {ticket.status}
-                </span>
-              </div>
+      {loading ? (
+        <p className="loading-text">Loading...</p>
+      ) : (
+        <>
+          <div className="siem-stat-grid">
+            <div className="siem-stat-card">
+              <div className="siem-stat-card-label">TOTAL TICKETS</div>
+              <div className="siem-stat-card-value" style={{ color: 'var(--ns-accent)' }}>{stats.total}</div>
+              <div className="siem-stat-card-sub">All submitted tickets</div>
             </div>
-          ))
-        )}
-      </div>
-
-      {selectedTicket && (
-        <div className="ticket-detail">
-          <div className="card-header">
-            <h3>{selectedTicket.title}</h3>
-            <span className={`badge ${STATUS_BADGE_CLASS[selectedTicket.status] ?? ''}`}>
-              {selectedTicket.status}
-            </span>
-          </div>
-          <p>{selectedTicket.description}</p>
-
-          <div className="field-row">
-            {selectedTicket.status === 'open' && (
-              <button className="btn" onClick={() => handleStatusChange('investigating')}>
-                Start Investigation
-              </button>
-            )}
-            {selectedTicket.status === 'investigating' && (
-              <button className="btn" onClick={() => handleStatusChange('closed')}>
-                Close Ticket
-              </button>
-            )}
+            <div className="siem-stat-card">
+              <div className="siem-stat-card-label">OPEN</div>
+              <div className="siem-stat-card-value" style={{ color: 'var(--danger)' }}>{stats.open}</div>
+              <div className="siem-stat-card-sub">Awaiting triage</div>
+            </div>
+            <div className="siem-stat-card">
+              <div className="siem-stat-card-label">INVESTIGATING</div>
+              <div className="siem-stat-card-value" style={{ color: 'var(--warning)' }}>{stats.investigating}</div>
+              <div className="siem-stat-card-sub">In active review</div>
+            </div>
+            <div className="siem-stat-card">
+              <div className="siem-stat-card-label">CLOSED</div>
+              <div className="siem-stat-card-value" style={{ color: 'var(--success)' }}>{stats.closed}</div>
+              <div className="siem-stat-card-sub">Resolved tickets</div>
+            </div>
           </div>
 
-          <h4>Audit Log</h4>
-          <ul className="audit-log">
-            {Array.isArray(selectedTicket.auditLog) && selectedTicket.auditLog.map((entry, index) => (
-              <li key={index}>
-                {entry.timestamp} — {entry.action}: {entry.note}
-              </li>
+          <div className="siem-panel">
+            <div className="siem-panel-title">New Ticket</div>
+            <div className="field-row field-column">
+              <input
+                type="text"
+                placeholder="Title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+              />
+            </div>
+            <div className="field-row field-column">
+              <textarea
+                placeholder="Description"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </div>
+            <div className="field-row">
+              <button className="siem-refresh-btn" onClick={handleSubmit}>Submit</button>
+            </div>
+          </div>
+
+          <div className="siem-filter-tabs">
+            {FILTERS.map((filter) => {
+              const count = filter.id === 'all' ? stats.total : stats[filter.id];
+              return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  className={`siem-filter-tab ${activeFilter === filter.id ? 'active' : ''}`}
+                  onClick={() => setActiveFilter(filter.id)}
+                >
+                  {filter.label.toUpperCase()} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="siem-alerts-section">
+            {filteredTickets.map((ticket) => (
+              <div
+                key={ticket.id}
+                className="siem-ticket-card"
+                style={{ borderLeftColor: STATUS_COLOR_VAR[ticket.status] ?? 'var(--ns-text-muted)' }}
+              >
+                <div className="siem-alert-card-top">
+                  <div className="siem-alert-card-left">
+                    <span className="siem-alert-description">{ticket.title}</span>
+                    {ticket.deviceName && (
+                      <span className="siem-ticket-device-badge">{ticket.deviceName}</span>
+                    )}
+                    <span className="siem-ticket-origin-tag">
+                      {ticket.origin === 'auto' ? '⚡ Auto' : '✎ Manual'}
+                    </span>
+                  </div>
+                  <span
+                    className="badge"
+                    style={{ background: STATUS_COLOR_VAR[ticket.status] ?? 'var(--ns-text-muted)' }}
+                  >
+                    {STATUS_LABEL[ticket.status] ?? ticket.status}
+                  </span>
+                </div>
+                <div className="siem-alert-card-meta" style={{ paddingLeft: 0 }}>{ticket.description}</div>
+                <div className="siem-ticket-timestamp">{formatRelativeTime(ticket.created_at)}</div>
+
+                <div className="siem-ticket-status-row">
+                  <span className="siem-panel-hint">Set status:</span>
+                  <div className="siem-status-btn-group">
+                    {STATUS_ORDER.map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        className={`siem-status-btn ${ticket.status === status ? 'active' : ''}`}
+                        style={ticket.status === status ? { borderColor: STATUS_COLOR_VAR[status], color: STATUS_COLOR_VAR[status] } : undefined}
+                        disabled={ticket.status === status}
+                        onClick={() => handleStatusChange(ticket.id, status)}
+                      >
+                        {STATUS_LABEL[status]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             ))}
-          </ul>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

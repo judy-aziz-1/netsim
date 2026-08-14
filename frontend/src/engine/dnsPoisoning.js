@@ -85,3 +85,17 @@ export function findActiveDnsPoisonings(devices, dnsTables) {
 
   return results;
 }
+
+export function buildDnsPoisonToastMessage({ blocked, victimName, targetDomain, fakeIp }) {
+  if (blocked) {
+    return {
+      message: `⚠ Attack blocked: ${victimName} is immune to DNS poisoning (firewall protection)`,
+      type: 'error',
+    };
+  }
+
+  return {
+    message: `victim device ${victimName} now resolves ${targetDomain} to ${fakeIp}`,
+    type: 'success',
+  };
+}

@@ -291,12 +291,16 @@ function AttackPanel({
             </AttackField>
 
             <AttackField label="Target domain">
-              <input
-                type="text"
-                placeholder="Target domain"
-                value={targetDomain}
-                onChange={(event) => setTargetDomain(event.target.value)}
-              />
+              <select value={targetDomain} onChange={(event) => setTargetDomain(event.target.value)}>
+                <option value="">Target domain</option>
+                {devices
+                  .filter((device) => canBeVictim(device.type) && device.id !== dnsVictimDeviceId)
+                  .map((device) => (
+                    <option key={device.id} value={`${device.name}.local`}>
+                      {`${device.name}.local`}
+                    </option>
+                  ))}
+              </select>
             </AttackField>
 
             <AttackField label="Fake IP">

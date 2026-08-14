@@ -59,18 +59,27 @@ function DeviceNode({ device, onOpenSettings, onHoverChange, onSelect, isSelecte
   const [isUnderAttack, setIsUnderAttack] = useState(false);
   const attackTimeoutRef = useRef(null);
   const pendingClickTimeoutRef = useRef(null);
+  const arpLogSeenRef = useRef(0);
+  const dnsLogSeenRef = useRef(0);
 
   useEffect(() => {
     if (device.type !== 'firewall') {
       return;
     }
 
-    const lastArpEntry = arpAttackLog[arpAttackLog.length - 1];
-    const lastDnsEntry = dnsAttackLog[dnsAttackLog.length - 1];
+    // Scan only the newly-appended entries since we last checked, not just the
+    // single most recent log entry - a bidirectional ARP trigger appends two
+    // entries, and the second (reverse-leg) entry can target a different device
+    // than this one, which would otherwise mask an earlier entry that did target
+    // this firewall.
+    const newArpEntries = arpAttackLog.slice(arpLogSeenRef.current);
+    const newDnsEntries = dnsAttackLog.slice(dnsLogSeenRef.current);
+    arpLogSeenRef.current = arpAttackLog.length;
+    dnsLogSeenRef.current = dnsAttackLog.length;
 
-    const isTargeted =
-      (lastArpEntry && lastArpEntry.victimDeviceId === device.id) ||
-      (lastDnsEntry && lastDnsEntry.victimDeviceId === device.id);
+    const isTargeted = [...newArpEntries, ...newDnsEntries].some(
+      (entry) => entry.victimDeviceId === device.id,
+    );
 
     if (!isTargeted) {
       return;

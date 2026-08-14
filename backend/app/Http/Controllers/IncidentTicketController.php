@@ -27,6 +27,7 @@ class IncidentTicketController extends Controller
         ]);
 
         $validated['status'] = 'open';
+        $validated['origin'] = 'manual';
         $validated['auditLog'] = [[
             'timestamp' => now()->toIso8601String(),
             'action' => 'created',

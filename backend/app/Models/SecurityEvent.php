@@ -15,6 +15,9 @@ class SecurityEvent extends Model
         'attackerDeviceId',
         'victimDeviceId',
         'impersonatedDeviceId',
+        'attackerDeviceName',
+        'victimDeviceName',
+        'impersonatedDeviceName',
         'details',
     ];
 }

@@ -5,6 +5,7 @@ import {
   simulateDnsPoison,
   clearDnsPoison,
   findActiveDnsPoisonings,
+  buildDnsPoisonToastMessage,
 } from './dnsPoisoning';
 
 const devices = [
@@ -113,5 +114,35 @@ describe('isDnsTablePoisoned', () => {
     expect(result.changedEntries).toEqual([
       { domainName: 'bob.local', originalIp: '10.0.0.2', currentIp: '6.6.6.6' },
     ]);
+  });
+});
+
+describe('buildDnsPoisonToastMessage', () => {
+  it('returns the plain success message when not blocked', () => {
+    const result = buildDnsPoisonToastMessage({
+      blocked: false,
+      victimName: 'pc-1',
+      targetDomain: 'server-1.local',
+      fakeIp: '192.168.1.45',
+    });
+
+    expect(result).toEqual({
+      message: 'victim device pc-1 now resolves server-1.local to 192.168.1.45',
+      type: 'success',
+    });
+  });
+
+  it('returns a blocked message when the victim is immune', () => {
+    const result = buildDnsPoisonToastMessage({
+      blocked: true,
+      victimName: 'firewall-1',
+      targetDomain: 'server-1.local',
+      fakeIp: '192.168.1.45',
+    });
+
+    expect(result).toEqual({
+      message: '⚠ Attack blocked: firewall-1 is immune to DNS poisoning (firewall protection)',
+      type: 'error',
+    });
   });
 });

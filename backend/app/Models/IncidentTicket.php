@@ -17,5 +17,7 @@ class IncidentTicket extends Model
         'relatedAlertId',
         'assignedTo',
         'auditLog',
+        'origin',
+        'deviceName',
     ];
 }

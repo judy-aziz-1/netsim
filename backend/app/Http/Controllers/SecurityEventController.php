@@ -20,6 +20,9 @@ class SecurityEventController extends Controller
             'attackerDeviceId' => 'nullable|string',
             'victimDeviceId' => 'nullable|string',
             'impersonatedDeviceId' => 'nullable|string',
+            'attackerDeviceName' => 'nullable|string',
+            'victimDeviceName' => 'nullable|string',
+            'impersonatedDeviceName' => 'nullable|string',
             'details' => 'nullable',
         ]);
 

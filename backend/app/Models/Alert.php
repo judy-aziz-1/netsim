@@ -14,6 +14,7 @@ class Alert extends Model
         'ruleName',
         'severity',
         'victimDeviceId',
+        'victimDeviceName',
         'relatedEventIds',
         'eventCount',
         'description',
