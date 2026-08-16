@@ -184,7 +184,7 @@ button, input, select, textarea {
   border-radius: 8px;
   background: rgba(77, 159, 255, 0.1);
   border: 1px solid rgba(77, 159, 255, 0.25);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ns-text-dim);
   font-weight: 500;
   white-space: nowrap;
@@ -1234,7 +1234,7 @@ select option {
 /* ---------- Poison status ---------- */
 
 .ns-poison-status {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--ns-text-dim);
   padding: 2px 0;
 }

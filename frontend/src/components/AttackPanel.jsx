@@ -80,7 +80,7 @@ function AttackPanel({
 
         <div className={`ns-poison-status ${activePoisoningCount > 0 ? 'ns-poison-status-active' : ''}`}>
           {activePoisoningCount > 0
-            ? `${activePoisoningCount} active poisoned ${activePoisoningCount === 1 ? 'entry' : 'entries'}`
+            ? `${activePoisoningCount} active attack${activePoisoningCount === 1 ? '' : 's'}`
             : 'No active attacks'}
         </div>
 

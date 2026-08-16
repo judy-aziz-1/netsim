@@ -356,7 +356,11 @@ function App() {
             handleTriggerArpSpoof={handleTriggerArpSpoof}
             arpError={arpError}
             isArpAttackActive={isArpAttackActive}
-            activePoisoningCount={activePoisonings.length + activeDnsPoisonings.length}
+            activePoisoningCount={
+              activePoisonings.length +
+              activeDnsPoisonings.length +
+              devices.filter((d) => d.dosFloodActive).length
+            }
             arpBidirectional={arpBidirectional}
             setArpBidirectional={setArpBidirectional}
             handleStopArpSpoof={handleStopArpSpoof}
