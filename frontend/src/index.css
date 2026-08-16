@@ -459,7 +459,12 @@ select option {
 .badge-open { background: var(--color-open); }
 .badge-investigating { background: var(--color-investigating); }
 .badge-closed { background: var(--color-closed); }
-.badge-neutral { background: var(--text-muted); }
+.badge-neutral {
+  background: transparent;
+  border: 1px solid var(--ns-border-strong);
+  color: var(--text-muted);
+  cursor: default;
+}
 
 .badge-blocked { color: var(--success); font-weight: 600; }
 
