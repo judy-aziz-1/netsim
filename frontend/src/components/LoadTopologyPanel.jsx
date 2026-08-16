@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTopologyStore } from '../store/topologyStore';
 import { getTopologies } from '../api/client';
 import { formatRelativeTime } from '../engine/socStats';
+import ConfirmDialog from './ConfirmDialog';
 
 function LoadTopologyPanel({ onClose }) {
   const loadTopology = useTopologyStore((state) => state.loadTopology);
@@ -12,6 +13,7 @@ function LoadTopologyPanel({ onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
+  const [pendingDeleteTopology, setPendingDeleteTopology] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,13 +43,9 @@ function LoadTopologyPanel({ onClose }) {
     onClose();
   };
 
-  const handleDelete = async (topology) => {
+  const performDelete = async (topology) => {
     const id = topology.id ?? topology._id;
     const label = topology.name ?? 'Untitled';
-
-    if (!window.confirm(`Delete topology "${label}"? This cannot be undone.`)) {
-      return;
-    }
 
     setDeleteError(null);
 
@@ -88,7 +86,7 @@ function LoadTopologyPanel({ onClose }) {
               </button>
               <button
                 className="ns-topology-delete-btn"
-                onClick={() => handleDelete(topology)}
+                onClick={() => setPendingDeleteTopology(topology)}
                 title="Delete this topology"
               >
                 ×
@@ -103,6 +101,19 @@ function LoadTopologyPanel({ onClose }) {
           Close
         </button>
       </div>
+
+      {pendingDeleteTopology && (
+        <ConfirmDialog
+          message={`Delete topology "${pendingDeleteTopology.name ?? 'Untitled'}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={() => {
+            const topology = pendingDeleteTopology;
+            setPendingDeleteTopology(null);
+            performDelete(topology);
+          }}
+          onCancel={() => setPendingDeleteTopology(null)}
+        />
+      )}
     </div>
   );
 }

@@ -221,7 +221,7 @@ function AttackPanel({
                 onChange={(event) => setAttackerDeviceId(event.target.value)}
               >
                 <option value="">Attacker device</option>
-                <DeviceOptions devices={devices} />
+                <DeviceOptions devices={devices.filter((device) => canBeAttacker(device.type))} />
               </select>
             </AttackField>
 

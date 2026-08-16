@@ -7,6 +7,7 @@ import { findActiveDnsPoisonings } from '../engine/dnsPoisoning';
 import DeviceNode from './DeviceNode';
 import LinkLine from './LinkLine';
 import Packet from './Packet';
+import ConfirmDialog from './ConfirmDialog';
 
 function TopologyCanvas({ onOpenDeviceSettings, onOpenLinkSettings }) {
   const devices = useTopologyStore((state) => state.devices);
@@ -23,6 +24,7 @@ function TopologyCanvas({ onOpenDeviceSettings, onOpenLinkSettings }) {
   const [hoveredLink, setHoveredLink] = useState(null);
   const [selection, setSelection] = useState(null);
   const [animTime, setAnimTime] = useState(0);
+  const [pendingDeleteDevice, setPendingDeleteDevice] = useState(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -157,6 +159,7 @@ function TopologyCanvas({ onOpenDeviceSettings, onOpenLinkSettings }) {
                 setHoveredDeviceId(isHovering ? hoveredDeviceArg.id : null)
               }
               onSelect={(selectedDevice) => setSelection({ type: 'device', id: selectedDevice.id })}
+              onRequestDelete={setPendingDeleteDevice}
               isSelected={selection?.type === 'device' && selection.id === device.id}
               isPoisoned={poisonedDeviceIds.has(device.id)}
               pulseOpacity={pulseOpacity}
@@ -193,6 +196,18 @@ function TopologyCanvas({ onOpenDeviceSettings, onOpenLinkSettings }) {
             {formatSpeedLabel(hoveredLink.link.speed ?? getDefaultSpeed(hoveredLink.link.type))}
           </div>
         </div>
+      )}
+
+      {pendingDeleteDevice && (
+        <ConfirmDialog
+          message={`Delete device ${pendingDeleteDevice.name}?`}
+          confirmLabel="Delete"
+          onConfirm={() => {
+            removeDevice(pendingDeleteDevice.id);
+            setPendingDeleteDevice(null);
+          }}
+          onCancel={() => setPendingDeleteDevice(null)}
+        />
       )}
     </div>
   );

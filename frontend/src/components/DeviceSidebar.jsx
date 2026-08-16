@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useTopologyStore } from '../store/topologyStore';
 import routerIconSrc from '../assets/icons/router.svg';
 import switchIconSrc from '../assets/icons/switch.svg';
 import pcIconSrc from '../assets/icons/pc.svg';
 import firewallIconSrc from '../assets/icons/firewall.svg';
+import ConfirmDialog from './ConfirmDialog';
 
 const DEVICE_DEFS = [
   { type: 'router', label: 'Router', iconClass: 'ns-device-icon-router', x: 100, y: 100 },
@@ -53,11 +55,19 @@ function DeviceIcon({ type }) {
 function DeviceSidebar({ onOpenSaveTopology, onOpenLoadTopology }) {
   const addDevice = useTopologyStore((state) => state.addDevice);
   const clearTopology = useTopologyStore((state) => state.clearTopology);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleClear = () => {
-    if (window.confirm('Clear entire topology? This cannot be undone.')) {
-      clearTopology();
-    }
+    setShowClearConfirm(true);
+  };
+
+  const handleConfirmClear = () => {
+    clearTopology();
+    setShowClearConfirm(false);
+  };
+
+  const handleCancelClear = () => {
+    setShowClearConfirm(false);
   };
 
   return (
@@ -91,6 +101,15 @@ function DeviceSidebar({ onOpenSaveTopology, onOpenLoadTopology }) {
           Clear
         </button>
       </div>
+
+      {showClearConfirm && (
+        <ConfirmDialog
+          message="Clear entire topology? This cannot be undone."
+          confirmLabel="Clear"
+          onConfirm={handleConfirmClear}
+          onCancel={handleCancelClear}
+        />
+      )}
     </div>
   );
 }

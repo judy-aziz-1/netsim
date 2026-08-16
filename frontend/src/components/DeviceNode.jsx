@@ -44,6 +44,7 @@ function DeviceNode({
   onOpenSettings,
   onHoverChange,
   onSelect,
+  onRequestDelete,
   isSelected,
   isPoisoned,
   pulseOpacity,
@@ -52,7 +53,6 @@ function DeviceNode({
 }) {
   const updateDevicePosition = useTopologyStore((state) => state.updateDevicePosition);
   const addLink = useTopologyStore((state) => state.addLink);
-  const removeDevice = useTopologyStore((state) => state.removeDevice);
   const pushToast = useTopologyStore((state) => state.pushToast);
   const connectingFromDeviceId = useTopologyStore((state) => state.connectingFromDeviceId);
   const setConnectingFromDeviceId = useTopologyStore((state) => state.setConnectingFromDeviceId);
@@ -161,10 +161,7 @@ function DeviceNode({
 
   const handleDeleteClick = (event) => {
     event.cancelBubble = true;
-
-    if (window.confirm(`Delete device ${device.name}?`)) {
-      removeDevice(device.id);
-    }
+    onRequestDelete?.(device);
   };
 
   const handleMouseEnter = () => {

@@ -1167,6 +1167,59 @@ select option {
   line-height: 1.4;
 }
 
+/* ---------- Confirm dialog ---------- */
+
+.ns-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 70;
+}
+
+.ns-confirm-dialog {
+  background: var(--ns-bg-panel);
+  border: 1px solid var(--ns-border-strong);
+  border-radius: 10px;
+  padding: 20px 22px;
+  max-width: 360px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  font-family: var(--ns-sans);
+}
+
+.ns-confirm-message {
+  color: #e6ebf5;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.ns-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.ns-confirm-cancel-btn {
+  padding: 8px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--ns-border-strong);
+  background: transparent;
+  color: var(--ns-text-muted);
+  cursor: pointer;
+  font-family: var(--ns-sans);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ns-confirm-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
 /* ---------- Poison status ---------- */
 
 .ns-poison-status {
