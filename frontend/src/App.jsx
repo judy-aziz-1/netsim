@@ -181,6 +181,11 @@ function App() {
     devices.find((device) => device.id === dosTargetDeviceId)?.dosFloodActive,
   );
 
+  const isAnyAttackActive =
+    activePoisonings.length > 0 ||
+    activeDnsPoisonings.length > 0 ||
+    devices.some((device) => device.dosFloodActive);
+
   const pushPingHistory = (entry) => {
     setPingHistory((prev) => [{ id: `ping-${Date.now()}-${Math.random()}`, ...entry }, ...prev].slice(0, 3));
   };
@@ -266,9 +271,9 @@ function App() {
           </div>
           <div className="app-title-center">NetSim Simulation</div>
           <div className="app-status-group">
-            <div className="app-status-pill">
+            <div className={`app-status-pill ${isAnyAttackActive ? 'app-status-pill-active' : ''}`}>
               <span className="app-status-dot" />
-              <span>Simulation Idle</span>
+              <span>{isAnyAttackActive ? 'Attack Active' : 'Simulation Idle'}</span>
             </div>
             <div className="app-avatar">AR</div>
           </div>

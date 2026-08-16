@@ -198,6 +198,17 @@ button, input, select, textarea {
   box-shadow: 0 0 6px var(--success);
 }
 
+.app-status-pill-active {
+  background: rgba(231, 76, 60, 0.12);
+  border-color: rgba(231, 76, 60, 0.35);
+  color: var(--danger);
+}
+
+.app-status-pill-active .app-status-dot {
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger);
+}
+
 .app-avatar {
   width: 32px;
   height: 32px;
