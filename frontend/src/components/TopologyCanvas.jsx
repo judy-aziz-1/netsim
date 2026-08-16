@@ -9,7 +9,7 @@ import LinkLine from './LinkLine';
 import Packet from './Packet';
 import ConfirmDialog from './ConfirmDialog';
 
-function TopologyCanvas({ onOpenDeviceSettings, onOpenLinkSettings }) {
+function TopologyCanvas({ onOpenDeviceSettings, onOpenLinkSettings, initialSelectDeviceId }) {
   const devices = useTopologyStore((state) => state.devices);
   const links = useTopologyStore((state) => state.links);
   const activePackets = useTopologyStore((state) => state.activePackets);
@@ -25,6 +25,12 @@ function TopologyCanvas({ onOpenDeviceSettings, onOpenLinkSettings }) {
   const [selection, setSelection] = useState(null);
   const [animTime, setAnimTime] = useState(0);
   const [pendingDeleteDevice, setPendingDeleteDevice] = useState(null);
+
+  useEffect(() => {
+    if (initialSelectDeviceId) {
+      setSelection({ type: 'device', id: initialSelectDeviceId });
+    }
+  }, [initialSelectDeviceId]);
 
   useEffect(() => {
     const container = containerRef.current;

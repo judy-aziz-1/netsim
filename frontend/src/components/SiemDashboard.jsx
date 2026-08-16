@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getAlerts, getSecurityEvents } from '../api/client';
 import { computeSiemOverview } from '../engine/siemStats';
+import { useTopologyStore } from '../store/topologyStore';
 
 const SEVERITY_BORDER_VAR = {
   high: 'var(--color-high)',
@@ -14,12 +15,22 @@ const SEVERITY_BADGE_CLASS = {
   low: 'badge-low',
 };
 
-function SiemDashboard({ onCountUpdate }) {
+const ALERT_FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'arp', label: 'ARP', ruleName: 'repeated_arp_spoof' },
+  { id: 'dns', label: 'DNS', ruleName: 'repeated_dns_poison' },
+  { id: 'dos', label: 'DoS', ruleName: 'repeated_dos_attack' },
+];
+
+function SiemDashboard({ onCountUpdate, onNavigateToDevice }) {
+  const devices = useTopologyStore((state) => state.devices);
+  const pushToast = useTopologyStore((state) => state.pushToast);
   const [alerts, setAlerts] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [eventsOpen, setEventsOpen] = useState(true);
+  const [alertFilter, setAlertFilter] = useState('all');
 
   const loadData = () => {
     setError(null);
@@ -45,11 +56,26 @@ function SiemDashboard({ onCountUpdate }) {
     ? alerts.filter((alert) => alert.status === 'open').length
     : 0;
 
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
+  const activeAlertRuleName = ALERT_FILTERS.find((f) => f.id === alertFilter)?.ruleName;
+  const filteredAlerts = activeAlertRuleName
+    ? safeAlerts.filter((alert) => alert.ruleName === activeAlertRuleName)
+    : safeAlerts;
+
   useEffect(() => {
     onCountUpdate?.(activeThreats);
   }, [activeThreats, onCountUpdate]);
 
   const overview = useMemo(() => computeSiemOverview(events, alerts), [events, alerts]);
+
+  const handleDeviceNameClick = (entry) => {
+    const liveDevice = devices.find((d) => d.id === entry.id);
+    if (liveDevice) {
+      onNavigateToDevice?.(liveDevice.id);
+    } else {
+      pushToast(`Device "${entry.name}" no longer exists in the current topology`, 'error');
+    }
+  };
 
   return (
     <div>
@@ -151,7 +177,7 @@ function SiemDashboard({ onCountUpdate }) {
                 <div className="siem-device-list-label">TOP ATTACKERS</div>
                 {overview.topAttackers.map((a) => (
                   <div key={a.id} className="siem-device-row">
-                    <div className="siem-device-name">{a.name}</div>
+                    <div className="siem-device-name" onClick={() => handleDeviceNameClick(a)}>{a.name}</div>
                     <div className="siem-device-bar-track">
                       <div className="siem-device-bar-fill" style={{ width: `${a.pct}%`, background: 'var(--danger)' }} />
                     </div>
@@ -163,7 +189,7 @@ function SiemDashboard({ onCountUpdate }) {
                 <div className="siem-device-list-label">TOP VICTIMS</div>
                 {overview.topVictims.map((v) => (
                   <div key={v.id} className="siem-device-row">
-                    <div className="siem-device-name">{v.name}</div>
+                    <div className="siem-device-name" onClick={() => handleDeviceNameClick(v)}>{v.name}</div>
                     <div className="siem-device-bar-track">
                       <div className="siem-device-bar-fill" style={{ width: `${v.pct}%`, background: 'var(--warning)' }} />
                     </div>
@@ -176,7 +202,24 @@ function SiemDashboard({ onCountUpdate }) {
 
           <div className="siem-alerts-section">
             <div className="siem-section-label">ALERTS</div>
-            {Array.isArray(alerts) && alerts.map((alert) => (
+            <div className="ns-tool-tabs">
+              {ALERT_FILTERS.map((f) => {
+                const count = f.ruleName
+                  ? safeAlerts.filter((a) => a.ruleName === f.ruleName).length
+                  : safeAlerts.length;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    className={`ns-tool-tab ${alertFilter === f.id ? 'active' : ''}`}
+                    onClick={() => setAlertFilter(f.id)}
+                  >
+                    {`${f.label} (${count})`}
+                  </button>
+                );
+              })}
+            </div>
+            {filteredAlerts.map((alert) => (
               <div
                 key={alert.id}
                 className="siem-alert-card"

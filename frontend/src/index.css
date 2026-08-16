@@ -1570,6 +1570,7 @@ select option {
   color: var(--ns-text-dim);
   white-space: nowrap;
   overflow: hidden;
+  cursor: pointer;
   text-overflow: ellipsis;
   flex: none;
 }

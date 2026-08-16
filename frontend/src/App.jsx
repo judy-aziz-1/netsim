@@ -20,6 +20,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('editor');
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
   const [selectedLinkId, setSelectedLinkId] = useState(null);
+  const [pendingSelectDeviceId, setPendingSelectDeviceId] = useState(null);
   const [showSaveTopology, setShowSaveTopology] = useState(false);
   const [showLoadTopology, setShowLoadTopology] = useState(false);
   const [openAlertsCount, setOpenAlertsCount] = useState(0);
@@ -312,7 +313,13 @@ function App() {
 
       {activeTab === 'siem' && (
         <div className="app-content-scroll">
-          <SiemDashboard onCountUpdate={setOpenAlertsCount} />
+          <SiemDashboard
+            onCountUpdate={setOpenAlertsCount}
+            onNavigateToDevice={(deviceId) => {
+              setActiveTab('editor');
+              setPendingSelectDeviceId(deviceId);
+            }}
+          />
         </div>
       )}
       {activeTab === 'soc' && (
@@ -333,6 +340,7 @@ function App() {
             <TopologyCanvas
               onOpenDeviceSettings={(device) => setSelectedDeviceId(device.id)}
               onOpenLinkSettings={(link) => setSelectedLinkId(link.id)}
+              initialSelectDeviceId={pendingSelectDeviceId}
             />
           </div>
 
