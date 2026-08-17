@@ -1130,8 +1130,9 @@ select option {
 
 .ns-toast-container {
   position: fixed;
-  bottom: 16px;
-  right: 16px;
+  top: 108px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 60;
   display: flex;
   flex-direction: column;
