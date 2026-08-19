@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetSim — هجوم تسميم DNS: دليل شامل</title>
+<style>
+  :root {
+    --ns-bg: #0f1420;
+    --ns-bg-panel: #161d2e;
+    --ns-bg-input: #1c2436;
+    --ns-accent: #4d9fff;
+    --ns-text: #e6ebf5;
+    --ns-text-muted: #6c7a99;
+    --ns-text-dim: #8592ad;
+    --ns-border: rgba(255, 255, 255, 0.08);
+    --ns-border-strong: rgba(255, 255, 255, 0.12);
+    --success: #30c896;
+    --danger: #e74c3c;
+    --warning: #f5a623;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    direction: rtl;
+    background: var(--ns-bg);
+    color: var(--ns-text);
+    font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    line-height: 1.8;
+    padding: 0 0 80px 0;
+  }
+
+  .doc-wrap {
+    direction: rtl;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  header.hero {
+    background: linear-gradient(160deg, var(--ns-bg-panel), var(--ns-bg));
+    border-bottom: 1px solid var(--ns-border);
+    padding: 56px 28px 40px;
+    margin-bottom: 20px;
+  }
+
+  header.hero .hero-inner {
+    max-width: 980px;
+    margin: 0 auto;
+  }
+
+  .eyebrow {
+    color: var(--ns-accent);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 32px;
+    margin: 0 0 12px 0;
+    color: var(--ns-text);
+  }
+
+  .subtitle {
+    color: var(--ns-text-dim);
+    font-size: 16px;
+    max-width: 720px;
+  }
+
+  nav.toc {
+    background: var(--ns-bg-panel);
+    border: 1px solid var(--ns-border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 30px 0 44px;
+  }
+
+  nav.toc h2 {
+    font-size: 13px;
+    color: var(--ns-text-muted);
+    margin: 0 0 12px 0;
+  }
+
+  nav.toc ol {
+    margin: 0;
+    padding-right: 20px;
+    padding-left: 0;
+    columns: 2;
+    column-gap: 32px;
+  }
+
+  nav.toc li { margin-bottom: 8px; break-inside: avoid; }
+  nav.toc a { color: var(--ns-accent); text-decoration: none; font-size: 14.5px; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  section {
+    margin-bottom: 56px;
+    scroll-margin-top: 20px;
+  }
+
+  .section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(77, 159, 255, 0.15);
+    color: var(--ns-accent);
+    font-weight: 700;
+    font-size: 14px;
+    margin-left: 12px;
+    margin-right: 0;
+    flex-shrink: 0;
+  }
+
+  h2 {
+    display: flex;
+    align-items: center;
+    font-size: 22px;
+    color: var(--ns-text);
+    border-bottom: 1px solid var(--ns-border);
+    padding-bottom: 14px;
+    margin: 0 0 22px 0;
+  }
+
+  h3 {
+    font-size: 17px;
+    color: var(--ns-text);
+    margin: 28px 0 12px 0;
+  }
+
+  p { color: var(--ns-text-dim); margin: 0 0 14px 0; }
+  strong { color: var(--ns-text); }
+  code {
+    background: var(--ns-bg-input);
+    border: 1px solid var(--ns-border-strong);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 13px;
+    color: var(--ns-accent);
+    direction: ltr;
+    unicode-bidi: embed;
+    display: inline-block;
+  }
+
+  .card {
+    background: var(--ns-bg-panel);
+    border: 1px solid var(--ns-border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+
+  .callout {
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 18px 0;
+    border: 1px solid var(--ns-border-strong);
+    background: var(--ns-bg-input);
+  }
+  .callout.info { border-right: 4px solid var(--ns-accent); }
+  .callout.verified { border-right: 4px solid var(--success); }
+  .callout.warn { border-right: 4px solid var(--warning); }
+  .callout .callout-title { font-weight: 700; color: var(--ns-text); margin-bottom: 4px; font-size: 13.5px; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+    background: var(--ns-bg-panel);
+    border: 1px solid var(--ns-border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  thead th {
+    background: var(--ns-bg-input);
+    text-align: right;
+    padding: 12px 14px;
+    color: var(--ns-text-muted);
+    font-size: 12px;
+    border-bottom: 1px solid var(--ns-border-strong);
+  }
+
+  tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--ns-border);
+    color: var(--ns-text-dim);
+    vertical-align: top;
+    text-align: right;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child { color: var(--ns-text); font-weight: 600; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .badge-allowed { background: rgba(48, 200, 150, 0.15); color: var(--success); }
+  .badge-forbidden { background: rgba(231, 76, 60, 0.15); color: var(--danger); }
+  .badge-neutral { background: rgba(133, 146, 173, 0.15); color: var(--ns-text-dim); }
+
+  /* Diagrams */
+  .diagram {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    align-items: stretch;
+    margin: 20px 0;
+  }
+
+  .diagram-col { flex: 1; min-width: 260px; }
+  .diagram-label {
+    font-size: 12px;
+    color: var(--ns-text-muted);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .dns-table-box {
+    background: var(--ns-bg-input);
+    border: 1px solid var(--ns-border-strong);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 12.5px;
+    direction: rtl;
+  }
+
+  .dns-table-box .row-head {
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    font-weight: 700;
+    color: var(--ns-text-muted);
+  }
+  .dns-table-box .row {
+    display: flex;
+    border-top: 1px solid var(--ns-border);
+  }
+  .dns-table-box .cell { padding: 8px 10px; flex: 1; }
+  .dns-table-box .row.bad { background: rgba(231, 76, 60, 0.12); }
+  .dns-table-box .row.bad .cell:last-child { color: var(--danger); font-weight: 700; }
+  .dns-table-box .row.good .cell:last-child { color: var(--success); }
+
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ns-text-muted);
+    font-size: 22px;
+    min-width: 30px;
+  }
+
+  .device-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--ns-bg-input);
+    border: 1px solid var(--ns-border-strong);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ns-text);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-attacker { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  .dot-victim { background: var(--warning); }
+  .dot-impersonated { background: var(--ns-accent); }
+
+  .topo-diagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 26px 10px;
+    background: var(--ns-bg-input);
+    border: 1px solid var(--ns-border-strong);
+    border-radius: 10px;
+    margin: 18px 0;
+  }
+  .topo-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 110px;
+  }
+  .topo-node .box {
+    width: 70px;
+    height: 70px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    background: var(--ns-bg-panel);
+    border: 2px solid var(--ns-border-strong);
+  }
+  .topo-node.attacker .box { border-color: var(--danger); color: var(--danger); }
+  .topo-node.switch .box { border-color: var(--ns-text-muted); color: var(--ns-text-dim); border-radius: 50%; }
+  .topo-node.victim .box { border-color: var(--warning); color: var(--warning); }
+  .topo-node.impersonated .box { border-color: var(--ns-accent); color: var(--ns-accent); }
+  .topo-node .name { font-size: 12.5px; font-weight: 700; color: var(--ns-text); direction: ltr; }
+  .topo-node .role { font-size: 11px; color: var(--ns-text-muted); }
+  .topo-link {
+    height: 2px;
+    width: 34px;
+    background: var(--ns-border-strong);
+    align-self: center;
+    margin-top: -26px;
+  }
+
+  .ring-demo {
+    width: 70px; height: 70px; border-radius: 50%;
+    border: 3px solid var(--danger);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 14px rgba(231,76,60,0.55);
+    animation: pulse 1.4s ease-in-out infinite;
+    color: var(--danger); font-size: 22px;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .checklist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 18px 0; }
+  .check-item {
+    background: var(--ns-bg-panel);
+    border: 1px solid var(--ns-border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .check-item .icon { font-size: 20px; flex-shrink: 0; }
+  .check-item .txt { font-size: 13.5px; color: var(--ns-text-dim); }
+  .check-item .txt strong { display: block; color: var(--ns-text); margin-bottom: 3px; font-size: 14px; }
+
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 20px 0; }
+  .steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 4px 46px 22px 0;
+    border-right: 2px solid var(--ns-border-strong);
+    border-left: none;
+    margin-right: 17px;
+    margin-left: 0;
+  }
+  .steps li:last-child { border-right: 2px solid transparent; padding-bottom: 0; }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    right: -18px;
+    left: auto;
+    top: 0;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--ns-accent);
+    color: #08111f;
+    font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .steps .step-title { font-weight: 700; color: var(--ns-text); margin-bottom: 6px; font-size: 15px; }
+
+  footer {
+    text-align: center;
+    color: var(--ns-text-muted);
+    font-size: 12.5px;
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--ns-border);
+  }
+
+  .mono { font-family: "SF Mono", Consolas, Monaco, monospace; font-size: 12.5px; direction: ltr; display: inline-block; }
+
+  @media (max-width: 640px) {
+    nav.toc ol { columns: 1; }
+    h1 { font-size: 25px; }
+    .diagram { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">NetSim &middot; دليل تعليمي</div>
+    <h1>فهم ميزة هجوم تسميم DNS (DNS Poisoning)</h1>
+    <p class="subtitle">
+      شرح شامل من الصفر لنظرية تسميم جداول DNS، وكيفية تنفيذ هذه الميزة والتحقق من صحة مدخلاتها وعرضها بصريًا
+      داخل NetSim — موجَّه لقارئ لا يملك أي خلفية سابقة في الشبكات.
+    </p>
+  </div>
+</header>
+
+<div class="doc-wrap">
+
+  <nav class="toc">
+    <h2>المحتويات</h2>
+    <ol>
+      <li><a href="#theory">نظرية DNS Poisoning</a></li>
+      <li><a href="#mapping">كيف يُترجَم هذا للأداة الفعلية في NetSim</a></li>
+      <li><a href="#fields">كل حقل في لوحة DNS Attack</a></li>
+      <li><a href="#validation">قواعد التحقق وسيناريوهات الرفض</a></li>
+      <li><a href="#stop">وظيفة Stop / Reverse</a></li>
+      <li><a href="#evidence">قائمة تحقق الدليل المرئي</a></li>
+      <li><a href="#example">مثال عملي خطوة بخطوة</a></li>
+    </ol>
+  </nav>
+
+  <!-- SECTION 1 -->
+  <section id="theory">
+    <h2><span class="section-num">1</span>نظرية DNS Poisoning</h2>
+
+    <p>
+      <strong>نظام أسماء النطاقات (DNS)</strong> هو ما يسمح لنا باستخدام أسماء يسهل تذكّرها، مثل
+      <span class="mono">server1.local</span>، بدلًا من الاضطرار لحفظ عنوان IP رقمي لكل جهاز نريد الوصول إليه.
+      عندما يريد جهاز الاتصال باسم نطاق معيّن، فإنه يرسل استعلامًا يسأل "ما هو عنوان IP الخاص بـ
+      <span class="mono">server1.local</span>؟"، ويحصل على رد يحتوي عنوان IP الحقيقي المرتبط بذلك الاسم. يُخزَّن
+      هذا الربط (اسم النطاق ↔ عنوان IP) محليًا في ذاكرة تخزين مؤقت تُسمى <strong>جدول DNS</strong>، تمامًا مثلما
+      يُخزَّن ربط IP↔MAC في جدول ARP، لكن على مستوى الأسماء لا العناوين الفيزيائية.
+    </p>
+    <p>
+      يستغل <strong>تسميم DNS (DNS Poisoning)</strong> غياب أي توثيق قوي لهذه الاستجابات — فيتمكّن المهاجم من
+      حقن رد مزوّر يربط اسم نطاق حقيقي (مثل <span class="mono">server1.local</span>) بعنوان IP مزيّف يخصّه هو،
+      بدلًا من العنوان الحقيقي. فتقوم الضحية بتخزين هذا الربط الكاذب في جدولها، وابتداءً من تلك اللحظة، كل محاولة
+      وصول إلى ذلك الاسم تُوجَّه فعليًا إلى عنوان المهاجم بدلًا من الوجهة الحقيقية.
+    </p>
+    <p>
+      بخلاف تسميم ARP الذي يتطلب أن يكون المهاجم على نفس القطاع الفيزيائي المحلي (L2) للضحية، فإن تسميم DNS يعمل
+      على مستوى منطقي أعلى — فهو لا يتطلب جوارًا فيزيائيًا مباشرًا، بل فقط أن يكون هناك مسار شبكي فعلي من الضحية
+      إلى الجهاز الذي يمتلك عنوان IP المزيَّف.
+    </p>
+
+    <h3>جدول DNS لدى الضحية: قبل وبعد التسميم</h3>
+    <div class="diagram">
+      <div class="diagram-col">
+        <div class="diagram-label">قبل الهجوم (صحيح)</div>
+        <div class="dns-table-box">
+          <div class="row-head"><div class="cell">اسم النطاق</div><div class="cell">عنوان IP</div></div>
+          <div class="row good"><div class="cell">server1.local</div><div class="cell">192.168.1.20</div></div>
+        </div>
+      </div>
+      <div class="flow-arrow">⟸</div>
+      <div class="diagram-col">
+        <div class="diagram-label">بعد تسميم DNS</div>
+        <div class="dns-table-box">
+          <div class="row-head"><div class="cell">اسم النطاق</div><div class="cell">عنوان IP</div></div>
+          <div class="row bad"><div class="cell">server1.local</div><div class="cell">192.168.1.99 ⚠</div></div>
+        </div>
+      </div>
+    </div>
+
+    <h3>كيف تُعاد توجيه حركة المرور</h3>
+    <div class="diagram">
+      <div class="device-chip"><span class="dot dot-victim"></span> الضحية</div>
+      <div class="flow-arrow">⟸</div>
+      <div class="device-chip"><span class="dot dot-attacker"></span> المهاجم (يمتلك 192.168.1.99)</div>
+      <div class="flow-arrow">⟸</div>
+      <div class="device-chip"><span class="dot dot-impersonated"></span> server1.local الحقيقي</div>
+    </div>
+    <p>
+      بما أن جدول الضحية أصبح يربط <span class="mono">server1.local</span> بعنوان IP الخاص بالمهاجم، فإن أي
+      محاولة اتصال بهذا الاسم — كأمر Ping مثلًا — تُوجَّه فعليًا نحو المهاجم بدلًا من الخادم الحقيقي، ما يمنحه
+      موقعًا مكافئًا لهجوم الوسيط الخفي (MITM) لكن عبر تزوير الأسماء بدلًا من تزوير عناوين MAC.
+    </p>
+  </section>
+
+  <!-- SECTION 2 -->
+  <section id="mapping">
+    <h2><span class="section-num">2</span>كيف يُترجَم هذا للأداة الفعلية في NetSim</h2>
+
+    <p>
+      يحتفظ NetSim بجدول DNS واحد لكل جهاز داخل المخزن المركزي للحالة (<code>dnsTables</code>، مفهرَس بمعرّف
+      الجهاز). يُبنى كل جدول عبر الدالة <code>buildDnsTable()</code> في ملف <code>dnsPoisoning.js</code>، والتي
+      تمنح كل جهاز يملك عنوان IP مدخلًا واحدًا فقط في جدوله الخاص: اسم نطاقه هو
+      <code>`${device.name}.local`</code> مرتبطًا بعنوان IP الحقيقي الخاص به (فمثلًا يملك جهاز <code>Server-1</code>
+      مدخل <code>{'server1.local': '192.168.1.20'}</code>).
+    </p>
+
+    <h3>ما الذي يحدث فعليًا عند الضغط على "Trigger DNS Poison"</h3>
+    <table>
+      <thead><tr><th>الخطوة</th><th>ما يحدث داخليًا</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>١. التحقق من الصحة</td>
+          <td>يقوم إجراء <code>triggerDnsPoison()</code> في المخزن بتنفيذ كل الفحوصات الموضحة في
+          <a href="#validation">القسم الرابع</a> قبل أي تعديل على الحالة.</td>
+        </tr>
+        <tr>
+          <td>٢. تعديل الحالة</td>
+          <td>تُعيد الدالة <code>simulateDnsPoison(dnsTables, attackerDeviceId, victimDeviceId, targetDomain,
+          fakeIp)</code> كائن <code>dnsTables</code> جديدًا، حيث يُضاف مدخل جديد إلى جدول
+          <strong>الضحية</strong> فقط: المفتاح <code>targetDomain</code> يُربَط بالقيمة <code>fakeIp</code>.
+          لا يُلمَس جدول أي جهاز آخر — لا المهاجم، ولا الجهاز الذي يملك <code>fakeIp</code> فعليًا.</td>
+        </tr>
+        <tr>
+          <td>٣. تسجيل الحدث في SIEM</td>
+          <td>يُضاف سجل إلى <code>dnsAttackLog</code>، وتُرسِل الدالة <code>postSecurityEvent()</code> حدثًا من
+          نوع <code>dns_poison</code> (أو <code>firewall_blocked_dns_spoof</code> إذا كان نوع الضحية محصّنًا)
+          يحمل تفاصيل <code>{ targetDomain, fakeIp }</code> إلى لوحة مركز العمليات الأمنية (SOC) في الخلفية.</td>
+        </tr>
+        <tr>
+          <td>٤. المؤثرات البصرية</td>
+          <td>
+            <ul style="margin:6px 26px 0 0; padding:0;">
+              <li>تظهر <strong>حلقة حمراء نابضة</strong> حول الجهاز المسمَّم على لوحة الرسم (نفس المكوّن البصري
+              المستخدَم في تسميم ARP، مبني على مجموعة موحَّدة من الأجهزة المسمَّمة تضم كلا النوعين).</li>
+              <li>يُرسَم <strong>خط أحمر متقطع "خط الخداع"</strong> بين المهاجم والضحية.</li>
+              <li>يُبرَز الصف المتأثر في جدول DNS الخاص بالضحية، المرئي عبر <strong>إعدادات الجهاز</strong>، بفئة
+              CSS باسم <code>table-row-poisoned</code>.</li>
+              <li>يظهر <strong>إشعار توست (Toast)</strong> يؤكد نجاح التسميم بلغة واضحة، مثل: <em>"victim device
+              PC-1 now resolves server1.local to 192.168.1.99"</em>.</li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout info">
+      <div class="callout-title">نقطة معمارية مهمة</div>
+      <p>
+        تمامًا كما هو الحال مع ARP، لا شيء من هذه الآلية البصرية أو الخاصة بـSIEM مبني على "علم هجوم" منفصل — بل
+        تُشتق جميعها لحظيًا من مقارنة <code>dnsTables</code> الحالي بجدول أساسي (baseline) يُعاد بناؤه من جديد في
+        كل مرة عبر <code>findActiveDnsPoisonings()</code>. تُدمَج نتائج هذه الدالة مع نتائج
+        <code>findActivePoisonings()</code> الخاصة بـARP في <code>TopologyCanvas.jsx</code> لتشكيل مصدر حقيقة واحد
+        للحلقة النابضة، والخط المتقطع، وسطر الحالة الإجمالي — بحيث يعمل هجوما ARP وDNS معًا تحت نفس منظومة العرض
+        البصري.
+      </p>
+    </div>
+  </section>
+
+  <!-- SECTION 3 -->
+  <section id="fields">
+    <h2><span class="section-num">3</span>كل حقل في لوحة DNS Attack</h2>
+
+    <table>
+      <thead>
+        <tr><th>الحقل</th><th>الغرض</th><th>القيم المسموحة</th><th>القيم الممنوعة / المقيَّدة</th><th>السبب</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>DNS attacker device</td>
+          <td>يحدد الجهاز الذي يحقن رد DNS المزوّر.</td>
+          <td><span class="badge badge-allowed">type = 'attacker'</span></td>
+          <td><span class="badge badge-forbidden">أي نوع آخر</span></td>
+          <td>
+            تُفرَض هذه القاعدة عبر الدالة <code>canBeAttacker()</code>، المستخدَمة في كل من تصفية القائمة
+            المنسدلة داخل <code>AttackPanel.jsx</code> وفي التحقق الفعلي داخل <code>triggerDnsPoison()</code> في
+            المخزن. فقط نوع الجهاز المخصَّص "Attacker" في مجموعة أدوات NetSim يمثّل فاعلًا قادرًا على صياغة ردود
+            DNS مزوّرة.
+          </td>
+        </tr>
+        <tr>
+          <td>DNS victim device</td>
+          <td>الجهاز الذي سيُسمَّم جدول DNS الخاص به.</td>
+          <td><span class="badge badge-allowed">pc, server, router, firewall</span></td>
+          <td><span class="badge badge-forbidden">switch, attacker</span></td>
+          <td>
+            تُصفَّى القائمة المنسدلة للضحية مسبقًا عبر <code>canBeVictim()</code> لاستبعاد <code>switch</code>
+            (وكذلك <code>attacker</code>، بما أن جهاز المهاجم هو الفاعل نفسه، لا هدفًا). <strong>أجهزة الـSwitch
+            لا تملك عنوان IP</strong>، ولذلك لا يبنيها <code>buildDnsTable()</code> بأي مدخل أصلًا (تحصل على كائن
+            فارغ <code>{}</code>) — فلا يوجد جدول DNS ذو معنى يمكن تسميمه لديها.
+          </td>
+        </tr>
+        <tr>
+          <td>Target domain</td>
+          <td>اسم النطاق الذي سيُزوَّر داخل جدول الضحية (المفتاح المكتوب في <code>dnsTables</code>).</td>
+          <td><span class="badge badge-allowed">أي نص حر يدخله المستخدم</span></td>
+          <td><span class="badge badge-neutral">لا يوجد تحقق تنسيقي حاليًا</span></td>
+          <td>
+            هذا الحقل عبارة عن مُدخَل نصي حر تمامًا (<code>&lt;input type="text"&gt;</code> في
+            <code>AttackPanel.jsx</code>)، ولا يُطبَّق عليه أي تحقق من الصيغة (كوجود لاحقة <code>.local</code> أو
+            بنية اسم نطاق صحيحة). هذا <strong>قرار تصميمي متعمَّد لإبقاء النطاق مفتوحًا</strong> — لا خطأً — إذ
+            يسمح للمستخدم بتسميم أي مفتاح نصي يختاره، بما يشمل أسماء نطاقات لا تطابق اصطلاح
+            <code>{name}.local</code> الذي يستخدمه <code>buildDnsTable()</code> افتراضيًا، وهو ما يفيد في سيناريوهات
+            تعليمية متنوعة.
+          </td>
+        </tr>
+        <tr>
+          <td>Fake IP</td>
+          <td>عنوان IP المزوَّر الذي سيُربَط بـTarget domain داخل جدول الضحية.</td>
+          <td><span class="badge badge-allowed">نص حر، لكن يخضع لتحقق واقعية صارم قبل الكتابة</span></td>
+          <td><span class="badge badge-forbidden">أي عنوان لا يطابق IP حقيقيًا لجهاز في الطوبولوجيا، أو غير قابل للوصول من الضحية</span></td>
+          <td>
+            الحقل نفسه نصي حر (<code>&lt;input type="text"&gt;</code>) بلا تحقق تنسيقي فوري أثناء الكتابة، لكنه
+            يخضع عند الضغط على "Trigger DNS Poison" لتحقق مزدوج صارم داخل <code>triggerDnsPoison()</code> — تفصيله
+            الكامل في <a href="#validation">القسم الرابع</a> أدناه.
+          </td>
+        </tr>
+        <tr>
+          <td>قاعدة التمايز (Distinctness rule)</td>
+          <td>يجب أن يكون المهاجم والضحية جهازين مختلفين.</td>
+          <td><span class="badge badge-allowed">معرّفا جهازين مختلفين</span></td>
+          <td><span class="badge badge-forbidden">نفس الجهاز مهاجمًا وضحية معًا</span></td>
+          <td>
+            يُفحَص هذا صراحةً داخل <code>triggerDnsPoison()</code> قبل أي فحص آخر. لا يوجد سوى دورين في هجوم DNS
+            (بخلاف الأدوار الثلاثة في ARP)، لذا فإن قاعدة التمايز هنا أبسط: لا يمكن لجهاز أن يهاجم نفسه.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION 4 -->
+  <section id="validation">
+    <h2><span class="section-num">4</span>قواعد التحقق وسيناريوهات الرفض</h2>
+
+    <table>
+      <thead><tr><th>سيناريو الرفض</th><th>أين يتم فرضه</th><th>مثال ملموس</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>اختيار جهاز Switch كضحية</td>
+          <td>تصفية القائمة المنسدلة (<code>canBeVictim</code> في <code>attackRoles.js</code>)، بالإضافة إلى
+          إعادة الفحص داخل <code>triggerDnsPoison()</code> نفسه — الخيار <strong>لا يُعرَض أصلًا</strong> في
+          القائمة، لذا لا يمكن اختياره من الواجهة.</td>
+          <td>عند فتح قائمة "DNS victim device" في طوبولوجيا تحتوي <code>Switch-1</code> و<code>PC-1</code>
+          و<code>Server-1</code>، لا تظهر سوى <code>PC-1</code> و<code>Server-1</code> كخيارات.</td>
+        </tr>
+        <tr>
+          <td>نفس الجهاز مهاجمًا وضحية معًا</td>
+          <td>داخل <code>triggerDnsPoison()</code> في <code>topologyStore.js</code>، كأول فحص قبل أي شيء آخر.</td>
+          <td>اختيار <code>Attacker-1</code> كمهاجم وكضحية في آن واحد ← يُرفَض برسالة
+          <em>"attacker and victim device must be different"</em>، تظهر ضمن الاستمارة مباشرة.</td>
+        </tr>
+        <tr>
+          <td>Fake IP لا يطابق أي جهاز حقيقي في الطوبولوجيا</td>
+          <td>الفحص الأول من التحقق المزدوج: يبحث <code>triggerDnsPoison()</code> عن جهاز
+          <code>devices.find((device) =&gt; device.ip === fakeIp)</code>؛ إن لم يُعثَر عليه، يُرفَض الهجوم
+          فورًا.</td>
+          <td>إدخال <code>9.9.9.9</code> كعنوان Fake IP في طوبولوجيا لا يملك فيها أي جهاز هذا العنوان ← يُرفَض
+          برسالة <em>"9.9.9.9 does not match any device's real IP address in the topology"</em>، ولا يُكتَب أي
+          شيء إلى <code>dnsTables</code> إطلاقًا.</td>
+        </tr>
+        <tr>
+          <td>Fake IP يطابق جهازًا حقيقيًا، لكن بلا مسار فعلي من الضحية إليه</td>
+          <td>الفحص الثاني من التحقق المزدوج: بعد إيجاد الجهاز صاحب <code>fakeIp</code>، يُستدعى
+          <code>findPath(devices, links, victimDeviceId, impersonatedDevice.id)</code>؛ إن أعاد <code>null</code>
+          (لا يوجد مسار)، يُرفَض الهجوم أيضًا.</td>
+          <td>جهاز يملك العنوان <code>192.168.1.99</code> لكنه معزول تمامًا في جزء منفصل من الطوبولوجيا لا يصله
+          أي رابط من جهة الضحية ← يُرفَض برسالة <em>"PC-1 has no network path to the device at
+          192.168.1.99"</em>، ويبقى <code>dnsTables</code> دون أي تعديل.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>لماذا يحدث هذا التحقق المزدوج قبل أي كتابة</h3>
+    <div class="callout warn">
+      <div class="callout-title">مبرر التصميم</div>
+      <p>
+        بدون هذين الفحصين معًا (المطابقة أولًا، ثم قابلية الوصول ثانيًا)، كانت الأداة قد تسمح بتسميم جدول الضحية
+        بعنوان IP وهمي تمامًا لا يخص أي جهاز حقيقي، أو بعنوان يخص جهازًا حقيقيًا لكن لا يمكن للضحية الوصول إليه
+        فعليًا — وفي كلتا الحالتين ستظهر مؤشرات بصرية "تم التسميم بنجاح" (الحلقة النابضة، الخط المتقطع) رغم أن
+        الهجوم <strong>بلا أي أثر وظيفي حقيقي لاحقًا</strong>: فحص <code>findMitmRedirect()</code> في
+        <code>pingRouting.js</code> الذي يحدد ما إذا كان Ping سيمرّ عبر المهاجم يعتمد بدوره على إيجاد جهاز حقيقي
+        يملك عنوان <code>fakeIp</code> والتأكد من إمكانية الوصول إليه — فلو سُمِح بتسميم عنوان وهمي أو غير قابل
+        للوصول، لَبَقيت المؤشرات البصرية مضلِّلة دون أن ينعكس ذلك على نتيجة أي Ping فعلي لاحق.
+      </p>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">ملاحظة حول الحصانة</div>
+      <p>
+        كما هو الحال في تسميم ARP، تُطبَّق الدالة <code>isImmuneToAttack(victim.type, 'dns_poison')</code> بعد
+        اجتياز كل الفحوصات أعلاه — وحاليًا فقط نوع <code>firewall</code> مدرَج في مجموعة الأنواع المحصَّنة. إن
+        كانت الضحية جهاز Firewall، لا يُرفَض الهجوم بالكامل، بل يُسجَّل الحدث كـ
+        <code>firewall_blocked_dns_spoof</code> بدلًا من <code>dns_poison</code>، ولا يُعدَّل جدول DNS فعليًا.
+      </p>
+    </div>
+  </section>
+
+  <!-- SECTION 5 -->
+  <section id="stop">
+    <h2><span class="section-num">5</span>وظيفة Stop / Reverse</h2>
+
+    <p>
+      عند الضغط على زر <strong>"Stop DNS Poison"</strong>، يُستدعى الإجراء
+      <code>stopDnsPoison(victimDeviceId, targetDomain)</code> في المخزن، والذي بدوره يستدعي الدالة
+      <code>clearDnsPoison()</code> من ملف <code>dnsPoisoning.js</code>.
+    </p>
+
+    <div class="card">
+      <h3 style="margin-top:0;">ما الذي يحدث تقنيًا — وهو مختلف جوهريًا عن حالة ARP</h3>
+      <p>
+        على عكس <code>clearArpPoison()</code> الذي يستعيد <strong>قيمة أصلية موجودة مسبقًا</strong> (عنوان MAC
+        الحقيقي)، فإن <code>clearDnsPoison()</code> تقوم بـ<strong>حذف المفتاح المسمَّم بالكامل</strong> من جدول
+        الضحية عبر <code>delete updatedTable[targetDomain]</code>. لا يوجد أي "استبدال بقيمة أساسية" هنا.
+      </p>
+      <p>
+        السبب البنيوي لهذا الفرق: الدالة <code>buildDnsTable()</code> لا تَبني أصلًا أي مدخلات لأسماء نطاقات
+        "الجيران" أو الأجهزة الأخرى داخل جدول أي جهاز — كل جهاز يحصل فقط على مدخل واحد يخص اسم نطاقه هو
+        (<code>{`${device.name}.local`}: device.ip</code>)، إن وُجد. وهذا يختلف جذريًا عن <code>buildArpTable()</code>
+        التي تملأ جدول كل جهاز مسبقًا بكل الأجهزة الأخرى القابلة للوصول على نفس القطاع. بعبارة أخرى: أي مفتاح
+        <code>targetDomain</code> مسمَّم هو دائمًا مفتاح <strong>جديد كليًا</strong> لم يكن موجودًا في الجدول
+        الأصلي للضحية — لذا فإن العكس الصحيح لعملية <code>simulateDnsPoison()</code> هو حذف ذلك المفتاح تمامًا، لا
+        استعادته إلى قيمة أساسية لم تكن موجودة أصلًا.
+      </p>
+    </div>
+
+    <div class="callout verified">
+      <div class="callout-title">أثر الحذف على مؤشرات التسميم</div>
+      <p>
+        بعد الحذف، تعود <code>findActiveDnsPoisonings()</code> — التي تقارن الجدول الحالي بجدول أساسي (baseline)
+        يعاد بناؤه من <code>buildDnsTable()</code> — لرؤية جدول الضحية مطابقًا تمامًا لحالته الأصلية (بلا ذلك
+        المفتاح إطلاقًا)، فتختفي الحلقة النابضة، والخط المتقطع، والصف المُبرز، كنتيجة مباشرة لتطابق الجدولين من
+        جديد.
+      </p>
+    </div>
+  </section>
+
+  <!-- SECTION 6 -->
+  <section id="evidence">
+    <h2><span class="section-num">6</span>قائمة تحقق الدليل المرئي</h2>
+    <p>كل مكان يمكن فيه للمستخدم التحقق بصريًا من أن تسميم DNS فعّال حاليًا:</p>
+
+    <div class="checklist-grid">
+      <div class="check-item">
+        <div class="icon">
+          <div class="ring-demo">●</div>
+        </div>
+        <div class="txt"><strong>حلقة حمراء نابضة</strong>تُرسَم حول الجهاز المسمَّم على لوحة الرسم — نفس المكوّن البصري المستخدَم في تسميم ARP.</div>
+      </div>
+      <div class="check-item">
+        <div class="icon">┄┄</div>
+        <div class="txt"><strong>خط أحمر متقطع</strong>خط خداع متحرك بين المهاجم والضحية على لوحة الرسم.</div>
+      </div>
+      <div class="check-item">
+        <div class="icon">🗂</div>
+        <div class="txt"><strong>صف أحمر في DNS Table</strong>في إعدادات الجهاز ← جدول DNS، يحصل صف اسم النطاق المتأثر على نمط <code>table-row-poisoned</code>.</div>
+      </div>
+      <div class="check-item">
+        <div class="icon">📊</div>
+        <div class="txt"><strong>سطر الحالة الإجمالي</strong>يعرض رأس لوحة Attacks &amp; Tools عدّادًا موحَّدًا يضم تسميمات ARP وDNS معًا، مثل "2 active poisoned entries".</div>
+      </div>
+      <div class="check-item">
+        <div class="icon">🔔</div>
+        <div class="txt"><strong>إشعار توست</strong>تأكيد بلغة واضحة عند التنفيذ، مثل "victim device PC-1 now resolves server1.local to 192.168.1.99".</div>
+      </div>
+      <div class="check-item">
+        <div class="icon">🛡</div>
+        <div class="txt"><strong>حدث SIEM</strong>إرسال <code>dns_poison</code> (أو <code>firewall_blocked_dns_spoof</code>) إلى لوحة مركز العمليات الأمنية (SOC) في الخلفية، مع تفاصيل <code>{ targetDomain, fakeIp }</code>.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 7 -->
+  <section id="example">
+    <h2><span class="section-num">7</span>مثال عملي خطوة بخطوة</h2>
+
+    <p>الطوبولوجيا: <code>Attacker-1</code> — <code>Switch-1</code> — <code>PC-1</code> (الضحية)، مع جهاز حقيقي
+    آخر <code>Attacker-1</code> نفسه يملك عنوان IP سيُستخدَم كـFake IP (لا يشترط الهجوم أن يكون المهاجم نفسه
+    الجهة صاحبة عنوان Fake IP، لكن هذا أبسط سيناريو لتوضيح الفكرة عمليًا).</p>
+
+    <div class="topo-diagram">
+      <div class="topo-node attacker">
+        <div class="box">🧑‍💻</div>
+        <div class="name">Attacker-1</div>
+        <div class="role">مهاجم (يملك 192.168.1.99)</div>
+      </div>
+      <div class="topo-link"></div>
+      <div class="topo-node switch">
+        <div class="box">⬡</div>
+        <div class="name">Switch-1</div>
+        <div class="role">مرحّل L2</div>
+      </div>
+      <div class="topo-link"></div>
+      <div class="topo-node victim">
+        <div class="box">🖥</div>
+        <div class="name">PC-1</div>
+        <div class="role">ضحية</div>
+      </div>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <div class="step-title">إعداد الهجوم</div>
+        DNS attacker device = <code>Attacker-1</code>، DNS victim device = <code>PC-1</code>، Target domain =
+        <code>server1.local</code>، Fake IP = <code>192.168.1.99</code> (عنوان <code>Attacker-1</code> الحقيقي).
+        المهاجم والضحية مختلفان، وليست الضحية Switch، ويطابق Fake IP عنوان <code>Attacker-1</code> فعليًا، ويوجد
+        مسار من <code>PC-1</code> إلى <code>Attacker-1</code> عبر <code>Switch-1</code> — لذا يجتاز التحقق بنجاح.
+      </li>
+      <li>
+        <div class="step-title">الضغط على "Trigger DNS Poison"</div>
+        تضيف <code>simulateDnsPoison()</code> مدخلًا جديدًا إلى <code>dnsTables['PC-1']</code>: المفتاح
+        <code>server1.local</code> مربوطًا بالقيمة <code>192.168.1.99</code>. لا يُلمَس جدول أي جهاز آخر. يُسجَّل
+        حدث <code>dns_poison</code> واحد في SIEM.
+      </li>
+      <li>
+        <div class="step-title">ما يتغيّر بصريًا</div>
+        تظهر حلقة حمراء نابضة حول <code>PC-1</code>؛ ويتصل خط أحمر متقطع بين <code>Attacker-1</code> و
+        <code>PC-1</code>؛ ويُبرَز صف <code>server1.local</code> في جدول DNS ضمن إعدادات جهاز <code>PC-1</code>؛
+        ويظهر إشعار توست يؤكد التسميم؛ ويعرض سطر حالة لوحة Attacks عدّادًا محدَّثًا للإدخالات المسمَّمة النشطة.
+      </li>
+      <li>
+        <div class="step-title">تنفيذ Ping من PC-1 إلى server1.local</div>
+        يستدعي <code>buildPingRoute()</code> الدالة <code>findMitmRedirect()</code>، التي — في فرع فحص DNS —
+        تلاحظ أن <code>dnsTables['PC-1']['server1.local']</code> يساوي <code>192.168.1.99</code> وليس عنوان
+        الوجهة الحقيقية المقصودة، فتحدّد صاحب هذا العنوان على أنه <code>Attacker-1</code> وتتأكد من وجود مسار
+        فعلي إليه عبر <code>findPath()</code>. تُظهر نتيجة الـPing أن المسار مرّ <strong>عبر
+        المهاجم</strong> بدلًا من المسار المباشر إلى الوجهة الحقيقية — دليل على أن إعادة التوجيه حقيقية وظيفيًا.
+      </li>
+      <li>
+        <div class="step-title">الضغط على "Stop DNS Poison"</div>
+        تحذف <code>clearDnsPoison()</code> المفتاح <code>server1.local</code> بالكامل من
+        <code>dnsTables['PC-1']</code> — لا تستعيد قيمة أساسية، بل تُزيل المدخل المسمَّم تمامًا. تختفي الحلقة
+        والخط المتقطع والصف المُبرز فورًا لأن <code>findActiveDnsPoisonings()</code> يرى الآن أن جدول الضحية خالٍ
+        من ذلك المفتاح تمامًا، تمامًا كحالته قبل الهجوم.
+      </li>
+    </ol>
+  </section>
+
+  <footer>
+    NetSim &mdash; دليل هجوم تسميم DNS &middot; مُستخلَص من الشيفرة الفعلية الحالية في
+    <span class="mono">dnsPoisoning.js</span>، و<span class="mono">attackRoles.js</span>، و
+    <span class="mono">pingRouting.js</span>، و<span class="mono">topologyStore.js</span>، و
+    <span class="mono">AttackPanel.jsx</span>.
+  </footer>
+
+</div>
+</body>
+</html>

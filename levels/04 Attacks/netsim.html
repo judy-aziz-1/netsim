@@ -1,0 +1,33 @@
+
+<p>This isn't a puzzle level — it's our own <strong>live network topology simulator</strong>,
+built as a separate project. It lets you build arbitrary network topologies from scratch
+and run real <strong>ARP spoofing</strong> and <strong>DNS poisoning</strong> attacks against
+them, with a live SIEM dashboard and SOC ticket queue reacting to what you do.
+
+<p>The panel on the left is the full application, running live — everything you do there
+is real, not scripted.
+
+<h3>Try it out</h3>
+
+<ul>
+	<li>Add a few devices and connect them into a topology
+	<li>Launch an ARP spoofing attack against one of them
+	<li>Launch a DNS poisoning attack
+	<li>Watch the SIEM dashboard and SOC tickets update in response
+</ul>
+
+<script type="text/javascript">
+(function () {
+	var iframe = document.createElement('iframe');
+	iframe.src = 'http://localhost:5173';
+	iframe.style.position = 'fixed';
+	iframe.style.inset = '0';
+	iframe.style.top = '0';
+	iframe.style.left = '0';
+	iframe.style.width = '100vw';
+	iframe.style.height = '100vh';
+	iframe.style.border = '0';
+	iframe.style.zIndex = '9999';
+	document.body.appendChild(iframe);
+})();
+</script>

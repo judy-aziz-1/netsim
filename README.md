@@ -16,3 +16,6 @@ Erinn is on [Patreon](https://www.patreon.com/errorinn)
 - created by erinn atwater and cecylia bocovich
 - device images designed by [madebyoliver](http://www.flaticon.com/authors/madebyoliver) from Flaticon
 
+# SIEM/SOC simulator (backend/ + frontend/)
+Run both services with `docker-compose up` from the repo root. Before that, place a real `backend/.env` file (with your MongoDB Atlas credentials) yourself — it is not baked into the image for security reasons, only `backend/.env.example` is. Once running, the app is available at http://localhost:5173, talking to the API at http://localhost:8000.
+
